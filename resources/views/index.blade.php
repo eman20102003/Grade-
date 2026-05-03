@@ -1,3 +1,4 @@
+html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,15 +6,15 @@
   <title>Grade+</title>
 
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css">
-  <link rel="icon" type="image/svg+xml" href="images/logo.svg">
+  <link rel="stylesheet" href="{{ asset('css/style.css') }}">
+  <link rel="icon" type="image/svg+xml" href="{{ asset('images/logo.svg') }}">
 </head>
 
 <body>
 
 <header class="navbar">
-  <a href="index.html" class="logo">
-    <img src="images/logo.svg" alt="logo">
+  <a href="/" class="logo">
+    <img src="{{ asset('images/logo.svg') }}" alt="logo">
     <span>Grade+</span>
   </a>
 </header>
@@ -36,11 +37,12 @@
         Built for educators who want to save time and reduce errors.
       </p>
 
-      <a href="form.html" class="main-btn">Start Analyzing</a>
+     
+      <a href="{{ url('/form') }}" class="main-btn">Start Analyzing</a>
     </div>
 
     <div class="hero-right">
-      <img src="images/hero.png" alt="Hero Image">
+      <img src="{{ asset('images/hero.png') }}" alt="Hero Image">
     </div>
 
   </div>
@@ -48,3 +50,4 @@
 
 </body>
 </html>
+

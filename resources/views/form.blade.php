@@ -3,16 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <title>Analyze Grades</title>
-  <link rel="stylesheet" href="css/style.css">
-    <link rel="icon" type="image/svg+xml" href="images/logo.svg">
+
+  <!-- Laravel Assets -->
+  <link rel="stylesheet" href="{{ asset('css/style.css') }}">
+  <link rel="icon" type="image/svg+xml" href="{{ asset('images/logo.svg') }}">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
 
 </head>
 
 <body>
 
 <header class="navbar">
-  <a href="index.html" class="logo">
-    <img src="images/logo.svg" alt="logo">
+  <a href="#" class="logo">
+    <img src="{{ asset('images/logo.svg') }}" alt="logo">
     <span>Grade+</span>
   </a>
 </header>
@@ -27,7 +30,7 @@
     <!-- INPUT 1 -->
     <div class="input-group">
       <div class="icon-circle">
-        <img src="images/link icon.svg" alt="">
+        <img src="{{ asset('images/link icon.svg') }}" alt="">
       </div>
 
       <div class="input-box">
@@ -35,7 +38,7 @@
           Input Grades Sheet
           <span class="hint" data-text="Paste your Google Sheet link here">?</span>
         </label>
-        <input type="text" placeholder="Paste Google Sheet link here...">
+        <input type="text" id="sheet1" placeholder="Paste Google Sheet link here...">
         <small class="error-text"></small>
       </div>
     </div>
@@ -43,7 +46,7 @@
     <!-- INPUT 2 -->
     <div class="input-group">
       <div class="icon-circle">
-        <img src="images/link icon.svg" alt="">
+        <img src="{{ asset('images/link icon.svg') }}" alt="">
       </div>
 
       <div class="input-box">
@@ -51,7 +54,7 @@
           Output Results Sheet
           <span class="hint" data-text="This will contain the processed results">?</span>
         </label>
-        <input type="text" placeholder="Paste Google Sheet link here...">
+        <input type="text" id="sheet2" placeholder="Paste Google Sheet link here...">
         <small class="error-text"></small>
       </div>
     </div>
@@ -59,22 +62,20 @@
     <!-- TEXTAREA -->
     <div class="input-group">
       <div class="icon-circle">
-        <img src="images/configure.svg" alt="">
+        <img src="{{ asset('images/configure.svg') }}" alt="">
       </div>
 
       <div class="input-box">
         <label>
           Configure Grading Prompt
-          <span class="hint" data-text="Define how grades are calculated (e.g. 30% mid + 70% final)">?</span>
+          <span class="hint" data-text="Define how grades are calculated">?</span>
         </label>
-        <textarea placeholder="Example:
+        <textarea id="prompt" placeholder="Example:
 30% assignments + 30% midterm + 40% final"></textarea>
       </div>
     </div>
 
-    <p id="errorMessage" class="error-message">
-      Please enter valid Google Sheets links and grading rules.
-    </p>
+    <p id="errorMessage" class="error-message" style="display:none;"></p>
 
     <button class="analyze-btn" onclick="analyzeGrades()">Analyze Grades</button>
 
@@ -85,24 +86,21 @@
 
     <div class="result-header">
       <div class="icon-circle">
-        <img src="images/sheetVecor.svg" alt="">
+        <img src="{{ asset('images/sheetVecor.svg') }}" alt="">
       </div>
       <h3>Result Summary :</h3>
     </div>
 
     <div class="result-box">
       <p id="resultText">No results yet</p>
-      <small id="resultDesc">
-        Once you analyze grades, the calculation method
-        and summary will appear here.
-      </small>
+      <small id="resultDesc"></small>
     </div>
 
     <div class="stats">
 
       <div class="stat avg">
         <div class="stat-icon">
-          <img src="images/statics.svg" alt="">
+          <img src="{{ asset('images/statics.svg') }}" alt="">
         </div>
         <div class="stat-text">
           <p>Average Grade</p>
@@ -112,7 +110,7 @@
 
       <div class="stat high">
         <div class="stat-icon">
-          <img src="images/upArrow.svg" alt="">
+          <img src="{{ asset('images/upArrow.svg') }}" alt="">
         </div>
         <div class="stat-text">
           <p>Highest Grade</p>
@@ -122,7 +120,7 @@
 
       <div class="stat low">
         <div class="stat-icon">
-          <img src="images/downArrow.svg" alt="">
+          <img src="{{ asset('images/downArrow.svg') }}" alt="">
         </div>
         <div class="stat-text">
           <p>Lowest Grade</p>
@@ -134,15 +132,15 @@
 
     <div class="ready-box">
       <div class="ready-top">
-        <img src="images/True.svg" alt="">
+        <img src="{{ asset('images/True.svg') }}" alt="">
         <div>
           <p><strong>Your file is ready</strong></p>
           <small>Processed result with all calculations</small>
         </div>
       </div>
 
-      <button class="open-btn">
-        <img src="images/sheet.svg" alt="">
+      <button class="open-btn" id="openSheetBtn">
+        <img src="{{ asset('images/sheet.svg') }}" alt="">
         Open Result Sheet
       </button>
     </div>
@@ -150,90 +148,96 @@
   </div>
 
 </section>
+
 <script>
-
-function isValidGoogleSheet(url) {
-  return url.includes("docs.google.com") && url.includes("/spreadsheets/");
-}
-
 async function analyzeGrades() {
 
   const btn = document.querySelector(".analyze-btn");
   const card = document.getElementById("resultCard");
 
+  const input1 = document.getElementById("sheet1").value.trim();
+  const input2 = document.getElementById("sheet2").value.trim();
+  const prompt = document.getElementById("prompt").value.trim();
+
   const inputs = document.querySelectorAll("input");
   const errors = document.querySelectorAll(".error-text");
 
-  const input1 = inputs[0].value.trim();
-  const input2 = inputs[1].value.trim();
+  // تنظيف
+  inputs.forEach(i => i.classList.remove("input-error"));
+  errors.forEach(e => { e.style.display = "none"; e.innerText = ""; });
+  document.getElementById("errorMessage").style.display = "none";
 
-  let isValid = true;
-
-  // تنظيف القديم
-  inputs.forEach(input => input.classList.remove("input-error"));
-  errors.forEach(err => {
-    err.style.display = "none";
-    err.innerText = "";
-  });
-
-  // ❌ INPUT 1
-  if (input1 === "") {
-    inputs[0].classList.add("input-error");
-    errors[0].innerText = "This field is required";
-    errors[0].style.display = "block";
-    isValid = false;
-  } else if (!isValidGoogleSheet(input1)) {
-    inputs[0].classList.add("input-error");
-    errors[0].innerText = "Enter a valid Google Sheets link";
-    errors[0].style.display = "block";
-    isValid = false;
-  }
-
-  // ❌ INPUT 2
-  if (input2 === "") {
-    inputs[1].classList.add("input-error");
-    errors[1].innerText = "This field is required";
-    errors[1].style.display = "block";
-    isValid = false;
-  } else if (!isValidGoogleSheet(input2)) {
-    inputs[1].classList.add("input-error");
-    errors[1].innerText = "Enter a valid Google Sheets link";
-    errors[1].style.display = "block";
-    isValid = false;
-  }
-
-  if (!isValid) return;
-
-  // loading
   btn.disabled = true;
   btn.innerHTML = '<span class="loader"></span>';
 
-  await new Promise(res => setTimeout(res, 1500));
+  try {
 
-  const data = {
-    avg: 80,
-    max: 95,
-    min: 60,
-    explanation: "Grades were analyzed using weighted average (Assignments 40%, Midterm 30%, Final 30%)."
-  };
+    const response = await fetch("{{ url('/send-to-n8n') }}", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-TOKEN": document
+          .querySelector('meta[name="csrf-token"]')
+          .getAttribute('content')
+      },
+      body: JSON.stringify({
+        sheet1: input1,
+        sheet2: input2,
+        prompt: prompt
+      })
+    });
 
-  document.getElementById("avgValue").innerText = data.avg;
-  document.getElementById("maxValue").innerText = data.max;
-  document.getElementById("minValue").innerText = data.min;
+    const result = await response.json();
 
-  document.getElementById("resultText").innerText = "Calculation Summary";
-  document.getElementById("resultDesc").innerText = data.explanation;
+    if (!result.success) {
 
-  card.classList.add("show");
+      if (result.error.toLowerCase().includes("input")) {
+        inputs[0].classList.add("input-error");
+        errors[0].innerText = result.error;
+        errors[0].style.display = "block";
+      }
+      else if (result.error.toLowerCase().includes("output")) {
+        inputs[1].classList.add("input-error");
+        errors[1].innerText = result.error;
+        errors[1].style.display = "block";
+      }
+      else {
+        document.getElementById("errorMessage").innerText = result.error;
+        document.getElementById("errorMessage").style.display = "block";
+      }
 
-  btn.innerText = "Done ✓";
+      btn.innerText = "Analyze Grades";
+      btn.disabled = false;
+      return;
+    }
 
-  setTimeout(() => {
+    // نجاح
+    const data = result.n8n_response;
+
+    document.getElementById("avgValue").innerText = data.avg ?? "--";
+    document.getElementById("maxValue").innerText = data.max ?? "--";
+    document.getElementById("minValue").innerText = data.min ?? "--";
+
+    document.getElementById("resultText").innerText = "Calculation Summary";
+    document.getElementById("resultDesc").innerText = data.explanation || "";
+
+    
+    document.getElementById("openSheetBtn").onclick = function () {
+      if (input2) window.open(input2, "_blank");
+    };
+
+    card.classList.add("show");
+
+    btn.innerText = "Done ✓";
+
+  } catch (e) {
+    document.getElementById("errorMessage").innerText = "Server error";
+    document.getElementById("errorMessage").style.display = "block";
     btn.innerText = "Analyze Grades";
-    btn.disabled = false;
-  }, 2000);
-}
+  }
 
+  btn.disabled = false;
+}
 </script>
 
 </body>
