@@ -68,6 +68,25 @@
             <span class="hint" data-text="Define how grades are calculated">?</span>
           </label>
           <textarea id="prompt" placeholder="Example: 30% assignments + 30% midterm + 40% final"></textarea>
+        <div class="prompt-hint">
+  <p>💡 <strong>For best results, specify:</strong></p>
+  <ul>
+    <li>Each component's max score (e.g. "Midterm out of 30")</li>
+    <li>Its weight as a percentage (e.g. "= 30%")</li>
+    <li>Any special rules (e.g. "best 3 quizzes out of 5")</li>
+    <li>What to do with missing values (e.g. "if midterm is missing, count final as 70%")</li>
+    <li>Which attempt to use if multiple exist (e.g. "take the highest attempt" or "take the last attempt")</li>
+  </ul>
+  <p><strong>Example:</strong></p>
+  <code>
+    Midterm out of 30 = 30%<br>
+    Final out of 55 = 40%<br>
+    Project out of 20 = 15%<br>
+    Best 3 quizzes out of 10 each = 15%<br>
+    If midterm is missing, count final as 70%<br>
+    If a quiz has multiple attempts, take the highest
+  </code>
+</div>
         </div>
       </div>
 
@@ -235,6 +254,12 @@
         };
 
         card.classList.add("show");
+           /*if (result.warning) {
+                console.warn('n8n warning:', result.warning);
+                document.getElementById("errorMessage").innerText =
+                "Some data may not have been processed correctly. Please review the results.";
+                document.getElementById("errorMessage").style.display = "block";
+                 }*/
         btn.innerText = "Done ✓";
 
 

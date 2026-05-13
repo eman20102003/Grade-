@@ -224,6 +224,38 @@ textarea {
   margin-bottom: 10px;
 }
 
+
+
+.prompt-hint {
+  background: #f0f7ff;
+  border-left: 3px solid #4a90e2;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-top: 8px;
+  font-size: 13px;
+  color: #444;
+}
+
+.prompt-hint ul {
+  margin: 6px 0 10px 16px;
+  padding: 0;
+}
+
+.prompt-hint li {
+  margin-bottom: 4px;
+}
+
+.prompt-hint code {
+  display: block;
+  background: #e8f0fe;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-top: 6px;
+  font-family: monospace;
+  line-height: 1.8;
+  color: #333;
+}
+
 /* ================= BUTTON ================= */
 
 .analyze-btn {
