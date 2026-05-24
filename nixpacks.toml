@@ -4,6 +4,8 @@ nixPkgs = ["php82", "php82Extensions.pdo_mysql", "php82Extensions.mbstring", "ph
 [phases.build]
 cmds = [
   "composer install --no-dev --optimize-autoloader",
+  "php artisan config:clear",
+  "php artisan cache:clear",
   "php artisan config:cache",
   "php artisan route:cache"
 ]
