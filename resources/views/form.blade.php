@@ -12,7 +12,7 @@
 <body>
 
   <header class="navbar">
-    <a href="#" class="logo">
+    <a href="/" class="logo">
       <img src="{{ asset('images/logo.svg') }}" alt="logo">
       <span>Grade+</span>
     </a>
@@ -160,7 +160,7 @@
 
     let promptAnalysis = null;
 
-    // ─── Helpers ─────────────────────────────────────────────────────────────
+    //  Helpers 
 
     function showError(message) {
       const el = document.getElementById('errorMessage');
@@ -182,7 +182,14 @@
       });
     }
 
-    // ─── Analyze Prompt ───────────────────────────────────────────────────────
+    function resetCalculateBtn() {
+      const btn = document.getElementById('proceedBtn');
+      btn.innerText = 'Calculate Grades';
+      btn.disabled = false;
+      delete btn.dataset.loading;
+}
+
+    //  Analyze Prompt 
 
     document.getElementById('analyzePromptBtn').addEventListener('click', async function () {
       const sheetUrl = document.getElementById('sheet1').value.trim();
@@ -254,7 +261,7 @@
       }
     });
 
-    // ─── Re-analyze ───────────────────────────────────────────────────────────
+    //  Re-analyze 
 
     document.getElementById('reAnalyzeBtn').addEventListener('click', function () {
       document.getElementById('resultCard').classList.remove('show');
@@ -266,91 +273,126 @@
 
       const analyzeBtn = document.getElementById('analyzePromptBtn');
       analyzeBtn.style.display = '';
+      resetCalculateBtn();
       analyzeBtn.click();
     });
 
-    // ─── Calculate Grades ─────────────────────────────────────────────────────
+    //  Calculate Grades 
 
-    async function analyzeGrades() {
-      const btn    = document.getElementById('proceedBtn');
-      const card   = document.getElementById('resultCard');
-      const input1 = document.getElementById('sheet1').value.trim();
-      const input2 = document.getElementById('sheet2').value.trim();
-      const prompt = document.getElementById('prompt').value.trim();
-      const inputs = document.querySelectorAll('input');
-      const errors = document.querySelectorAll('.error-text');
+   async function analyzeGrades() {
+  const btn    = document.getElementById('proceedBtn');
+  const card   = document.getElementById('resultCard');
+  const input1 = document.getElementById('sheet1').value.trim();
+  const input2 = document.getElementById('sheet2').value.trim();
+  const prompt = document.getElementById('prompt').value.trim();
+  const inputs = document.querySelectorAll('input');
+  const errors = document.querySelectorAll('.error-text');
 
-      hideError();
-      resetInputErrors();
+  hideError();
+  resetInputErrors();
 
-      if (btn.dataset.loading === 'true') return;
-      btn.dataset.loading = 'true';
-      btn.disabled = true;
-      btn.innerHTML = '<span class="loader"></span> Processing...';
+  if (btn.dataset.loading === 'true') return;
 
+  // validation
+  if (!input1) {
+    inputs[0].classList.add('input-error');
+    errors[0].innerText = 'Please enter the input sheet URL.';
+    errors[0].style.display = 'block';
+    return;
+  }
+  if (!input2) {
+    inputs[1].classList.add('input-error');
+    errors[1].innerText = 'Please enter the output sheet URL.';
+    errors[1].style.display = 'block';
+    return;
+  }
+  if (!prompt) { showError('Please enter the grading prompt.'); return; }
+
+  btn.dataset.loading = 'true';
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loader"></span> Processing...';
+
+  try {
+    const response = await fetch("{{ url('/send-to-n8n') }}", {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+      },
+      body: JSON.stringify({ sheet1: input1, sheet2: input2, prompt, analysis: promptAnalysis })
+    });
+    const text = await response.text();
+console.log('RAW RESPONSE:', text);
+
+let initial;
+try {
+  initial = JSON.parse(text);
+} catch (e) {
+  showError('Server returned an invalid response.');
+  resetCalculateBtn();
+  return;
+}
+
+    if (!initial.success) {
+      showError(initial.error || 'Something went wrong. Please try again.');
+      resetCalculateBtn();
+      return;
+    }
+
+    // Polling كل 5 ثواني
+    const jobId = initial.job_id;
+    let pollCount = 0;
+    const MAX_POLLS = 180;
+    const interval = setInterval(async () => {
+       pollCount++;
+      if (pollCount >= MAX_POLLS) {
+        clearInterval(interval);
+        showError('Processing is taking too long. Please try again.');
+        resetCalculateBtn();
+        return;
+      }
       try {
-        const response = await fetch("{{ url('/send-to-n8n') }}", {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-          },
-          body: JSON.stringify({
-            sheet1:   input1,
-            sheet2:   input2,
-            prompt:   prompt,
-            analysis: promptAnalysis
-          })
-        });
+        const res  = await fetch(`/job-status/${jobId}`);
+        const data = await res.json();
 
-        const result = await response.json();
-
-        if (!result.success) {
-          card.classList.remove('show');
-
-          if ((result.error || '').toLowerCase().includes('input')) {
-            inputs[0].classList.add('input-error');
-            errors[0].innerText = result.error;
-            errors[0].style.display = 'block';
-          } else if ((result.error || '').toLowerCase().includes('output')) {
-            inputs[1].classList.add('input-error');
-            errors[1].innerText = result.error;
-            errors[1].style.display = 'block';
-          } else {
-            showError(result.error || 'Unexpected error occurred. Please try again.');
-          }
-
-          btn.innerText = 'Calculate Grades';
+        if (data.status === 'done') {
+          clearInterval(interval);
+          document.querySelector('.stats').style.display = '';
+          document.getElementById('readyBox').style.display = '';
+          document.getElementById('resultCardTitle').innerText = 'Result Summary :';
+          document.getElementById('avgValue').innerText = data.avg ?? '--';
+          document.getElementById('maxValue').innerText = data.max ?? '--';
+          document.getElementById('minValue').innerText = data.min ?? '--';
+          document.getElementById('resultText').innerText = 'File processed successfully, Calculation Summary';
+          document.getElementById('resultDesc').innerText = data.explanation || '';
+          document.getElementById('openSheetBtn').onclick = () => {
+            if (data.sheet_url) window.open(data.sheet_url, '_blank');
+          };
+          card.classList.add('show');
+          btn.innerText = 'Done ✓';
           btn.disabled = false;
           btn.dataset.loading = 'false';
-          return;
+
+        } else if (data.status === 'failed') {
+          clearInterval(interval);
+          showError('Processing failed. Please try again.');
+          resetCalculateBtn();
         }
-
-        document.querySelector('.stats').style.display = '';
-        document.getElementById('readyBox').style.display = '';
-        document.getElementById('resultCardTitle').innerText = 'Result Summary :';
-        document.getElementById('avgValue').innerText = result.avg ?? '--';
-        document.getElementById('maxValue').innerText = result.max ?? '--';
-        document.getElementById('minValue').innerText = result.min ?? '--';
-        document.getElementById('resultText').innerText = 'File processed successfully, Calculation Summary';
-        document.getElementById('resultDesc').innerText = result.explanation || '';
-        document.getElementById('openSheetBtn').onclick = () => {
-          if (result.sheet_url) window.open(result.sheet_url, '_blank');
-        };
-
-        card.classList.add('show');
-        btn.innerText = 'Done ✓';
-        btn.dataset.loading = 'false';
-        btn.disabled = false;
+        // pending  استمر
 
       } catch (e) {
-        card.classList.remove('show');
-        showError('Something went wrong while connecting to the server. Please try again.');
-        btn.innerText = 'Calculate Grades';
-        btn.disabled = false;
-        btn.dataset.loading = 'false';
+        //clearInterval(interval);
+        console.warn('Poll error:', e);
+        showError('Connection error while checking status.');
+        resetCalculateBtn();
       }
-    }
+    }, 5000);
+
+  } catch (e) {
+    showError('Something went wrong while connecting to the server. Please try again.');
+    resetCalculateBtn();
+  }
+}
 
     document.getElementById('proceedBtn').addEventListener('click', analyzeGrades);
 

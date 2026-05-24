@@ -12,6 +12,7 @@ Route::get('/form', function () {
 Route::post('/send-to-n8n', [N8nController::class, 'send']);
 
 Route::post('/analyze-prompt', [N8nController::class, 'analyzePrompt'])->name('prompt.analyze');
+Route::get('/job-status/{jobId}', [N8nController::class, 'jobStatus']);
 
 // Route::get('/test', function () {
 //     return view('formNew');

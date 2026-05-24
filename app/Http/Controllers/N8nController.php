@@ -6,75 +6,81 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use \Illuminate\Http\JsonResponse;
-
+use Illuminate\Support\Str;
+use App\Models\GradingJob;
+use App\Jobs\ProcessGradingJob;
 class N8nController extends Controller
 {
-    // ─── Send to n8n ─────────────────────────────────────────────────────────
+    //  Send to n8n 
+public function send(Request $request)
+{
+    $sheet1   = $request->sheet1;
+    $sheet2   = $request->sheet2;
+    $prompt   = $request->prompt;
+    $analysis = $request->analysis;
 
-    public function send(Request $request)
-    {
-        $sheet1   = $request->sheet1;
-        $sheet2   = $request->sheet2;
-        $prompt   = $request->prompt;
-        $analysis = $request->analysis;
-
-        if (!$sheet1 || !$sheet2 || !$prompt || !$analysis) {
-            return $this->error('Please fill in all required fields before submitting.');
-        }
-
-
-        if (!$this->isValidSheetUrl($sheet1)) {
-            return $this->error('Please enter a valid Google Sheets link for the input data.');
-        }
-
-        if (!$this->isValidSheetUrl($sheet2)) {
-            return $this->error('Please provide an editable Google Sheets link for the output file.');
-        }
-
-        if (!str_contains($sheet2, '/edit')) {
-            return $this->error('Output sheet must be an edit link.');
-        }
-
-        if (str_contains($sheet1, '/edit')) {
-            $sheet1 = explode('/edit', $sheet1)[0] . '/gviz/tq?tqx=out:csv&gid=0';
-        }
-
-        try {
-            $response = Http::timeout(180)
-                ->retry(2, 2000)
-                ->post(env('N8N_WEBHOOK_URL'), compact('sheet1', 'sheet2', 'prompt', 'analysis'));
-
-            if (!$response->successful()) {
-                return $this->error("We couldn't process the data at the moment. Please check your input files and try again later.");
-            }
-
-            $data = $response->json();
-
-            if (!is_array($data)) {
-                return $this->error('Invalid response from processing server.');
-            }
-
-            $sheetUrl = $data['sheet_url'] ?? null;
-
-            if (!$sheetUrl) {
-                return $this->error('Result sheet was not generated properly.');
-            }
-
-            return response()->json([
-                'success'     => true,
-                'sheet_url'   => $sheetUrl,
-                'avg'         => $data['avg']         ?? null,
-                'max'         => $data['max']         ?? null,
-                'min'         => $data['min']         ?? null,
-                'explanation' => $data['explanation'] ?? null,
-            ]);
-
-        } catch (\Exception $e) {
-            return $this->error('Something went wrong while processing your request. Please try again.');
-        }
+    if (!$sheet1 || !$sheet2 || !$prompt || !$analysis) {
+        return $this->error('Please fill in all required fields before submitting.');
     }
 
-    // ─── Analyze Prompt ───────────────────────────────────────────────────────
+    if (!$this->isValidSheetUrl($sheet1)) {
+        return $this->error('Please enter a valid Google Sheets link for the input data.');
+    }
+
+    if (!$this->isValidSheetUrl($sheet2)) {
+        return $this->error('Please provide an editable Google Sheets link for the output file.');
+    }
+
+    if (!str_contains($sheet2, '/edit')) {
+        return $this->error('Output sheet must be an edit link.');
+    }
+
+    if (str_contains($sheet1, '/edit')) {
+        $sheet1 = explode('/edit', $sheet1)[0] . '/gviz/tq?tqx=out:csv&gid=0';
+    }
+
+   $jobId    = Str::uuid()->toString();
+$analysis = is_array($request->analysis) ? $request->analysis : null; // ← normalize here
+
+GradingJob::create(['id' => $jobId, 'status' => 'pending']);
+ProcessGradingJob::dispatch($jobId, $sheet1, $sheet2, $prompt, $analysis);
+
+return response()->json(['success' => true, 'job_id' => $jobId]);
+}
+
+public function jobStatus(string $jobId)
+{
+    $job = GradingJob::find($jobId);
+    if (!$job) return response()->json(['status' => 'not_found'], 404);
+  
+
+
+   
+    if (
+        $job->status === 'pending' &&
+        $job->created_at->diffInMinutes(now()) > 15
+    ) {
+        $job->update(['status' => 'failed', 'result' => ['error' => 'Timed out']]);
+        return response()->json(['status' => 'failed']);
+    }
+
+
+
+    if ($job->status === 'done') {
+        $data = $job->result;
+        return response()->json([
+            'status'      => 'done',
+            'sheet_url'   => $data['sheet_url']   ?? null,
+            'avg'         => $data['avg']          ?? null,
+            'max'         => $data['max']          ?? null,
+            'min'         => $data['min']          ?? null,
+            'explanation' => $data['explanation']  ?? null,
+        ]);
+    }
+
+    return response()->json(['status' => $job->status]); // pending أو failed
+}
+    //  Analyze Prompt 
 
     public function analyzePrompt(Request $request)
     {
@@ -162,7 +168,7 @@ class N8nController extends Controller
         ]);
     }
 
-    // ─── Helpers ──────────────────────────────────────────────────────────────
+    //  Helpers 
 
     private function error(string $message, int $status = 200)
     {
