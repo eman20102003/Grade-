@@ -4,11 +4,12 @@ nixPkgs = ["php82", "php82Extensions.pdo_mysql", "php82Extensions.mbstring", "ph
 [phases.build]
 cmds = [
   "composer install --no-dev --optimize-autoloader",
+  "npm install",
+  "npm run build",
   "php artisan config:clear",
-  "php artisan cache:clear",
   "php artisan config:cache",
   "php artisan route:cache"
 ]
 
 [start]
-cmd = "php artisan serve --host=0.0.0.0 --port=$PORT & php artisan queue:work --timeout=700"
+cmd = "php artisan serve --host=0.0.0.0 --port=$PORT"
