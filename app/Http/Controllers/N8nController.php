@@ -121,21 +121,23 @@ public function jobStatus(string $jobId)
             return response()->json(['success' => false, 'message' => 'No headers found in the first row of the sheet.'], 422);
         }
 
-        $openAiResponse = Http::withToken(env('OPENAI_API_KEY'))
-            ->timeout(120)
-            ->retry(3, 3000, fn($exception, $response) =>
-                $exception || ($response && in_array($response->status(), [500, 429, 503]))
-            )
-            ->post('https://api.openai.com/v1/responses', [
-                'model' => 'gpt-4.1',
-                'input' => [
-                    ['role' => 'system', 'content' => $this->systemPrompt()],
-                    ['role' => 'user',   'content' => json_encode([
-                        'user_prompt'       => $prompt,
-                        'available_columns' => $headers,
-                    ], JSON_UNESCAPED_UNICODE)],
-                ],
-            ]);
+        
+                 $openAiResponse = Http::withToken(env('OPENAI_API_KEY'))
+                        ->timeout(120)
+                       ->retry(3, 3000, fn($exception, $response) =>
+                       $exception || ($response && in_array($response->status(), [500, 429, 503]))
+                  )
+                      ->post('https://api.openai.com/v1/chat/completions', [
+                      'model'    => 'gpt-4-turbo',
+                      'messages' => [
+                           ['role' => 'system', 'content' => $this->systemPrompt()],
+                           ['role' => 'user',   'content' => json_encode([
+                            'user_prompt'       => $prompt,
+                            'available_columns' => $headers,
+                           ], JSON_UNESCAPED_UNICODE)],
+                              ],
+                              'temperature' => 0,
+                ]);
 
         if ($openAiResponse->failed()) {
             return response()->json([
@@ -145,7 +147,8 @@ public function jobStatus(string $jobId)
             ], 500);
         }
 
-        $analysisText = $openAiResponse->json()['output'][0]['content'][0]['text'] ?? null;
+                            
+                    $analysisText = $openAiResponse->json()['choices'][0]['message']['content'] ?? null;
 
         if (!$analysisText) {
             return response()->json(['success' => false, 'message' => 'No analysis returned from OpenAI.'], 500);
