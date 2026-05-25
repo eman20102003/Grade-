@@ -122,22 +122,32 @@ public function jobStatus(string $jobId)
         }
 
         
-                 $openAiResponse = Http::withToken(env('OPENAI_API_KEY'))
-                        ->timeout(120)
-                       ->retry(3, 3000, fn($exception, $response) =>
-                       $exception || ($response && in_array($response->status(), [500, 429, 503]))
-                  )
-                      ->post('https://api.openai.com/v1/chat/completions', [
-                      'model'    => 'gpt-4-turbo',
-                      'messages' => [
-                           ['role' => 'system', 'content' => $this->systemPrompt()],
-                           ['role' => 'user',   'content' => json_encode([
-                            'user_prompt'       => $prompt,
-                            'available_columns' => $headers,
-                           ], JSON_UNESCAPED_UNICODE)],
-                              ],
-                              'temperature' => 0,
-                ]);
+                 \Log::info('About to call OpenAI', [
+    'key_exists' => !empty(env('OPENAI_API_KEY')),
+    'key_prefix'  => substr(env('OPENAI_API_KEY') ?? '', 0, 7),
+]);
+
+$openAiResponse = Http::withToken(env('OPENAI_API_KEY'))
+    ->timeout(120)
+    ->retry(3, 3000, fn($exception, $response) =>
+        $exception || ($response && in_array($response->status(), [500, 429, 503]))
+    )
+    ->post('https://api.openai.com/v1/chat/completions', [
+        'model'    => 'gpt-4-turbo',
+        'messages' => [
+            ['role' => 'system', 'content' => $this->systemPrompt()],
+            ['role' => 'user',   'content' => json_encode([
+                'user_prompt'       => $prompt,
+                'available_columns' => $headers,
+            ], JSON_UNESCAPED_UNICODE)],
+        ],
+        'temperature' => 0,
+    ]);
+
+\Log::info('OpenAI response', [
+    'status' => $openAiResponse->status(),
+    'body'   => $openAiResponse->body(),
+]);
 
         if ($openAiResponse->failed()) {
             return response()->json([
