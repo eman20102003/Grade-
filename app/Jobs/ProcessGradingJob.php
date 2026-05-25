@@ -52,10 +52,15 @@ class ProcessGradingJob implements ShouldQueue
 
             $data = $response->json();
 
+            \Log::info('n8n response', [
+                 'status' => $response->status(),
+                 'data'   => $data,
+              ]);
+
             GradingJob::find($this->jobId)->update([
-                'status' => $response->successful() && isset($data['sheet_url']) ? 'done' : 'failed',
-                'result' => $data,
-            ]);
+               'status' => $response->successful() && isset($data['sheet_url']) ? 'done' : 'failed',
+               'result' => $data,
+               ]);
 
         } catch (\Exception $e) {
             GradingJob::find($this->jobId)->update([
