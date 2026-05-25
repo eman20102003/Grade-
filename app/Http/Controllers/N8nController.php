@@ -58,7 +58,7 @@ public function jobStatus(string $jobId)
    
     if (
         $job->status === 'pending' &&
-        $job->created_at->diffInMinutes(now()) > 15
+        $job->created_at->diffInMinutes(now()) > 30
     ) {
         $job->update(['status' => 'failed', 'result' => ['error' => 'Timed out']]);
         return response()->json(['status' => 'failed']);

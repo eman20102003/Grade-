@@ -342,7 +342,7 @@ try {
     // Polling كل 5 ثواني
     const jobId = initial.job_id;
     let pollCount = 0;
-    const MAX_POLLS = 180;
+    const MAX_POLLS = 360;
     const interval = setInterval(async () => {
        pollCount++;
       if (pollCount >= MAX_POLLS) {
