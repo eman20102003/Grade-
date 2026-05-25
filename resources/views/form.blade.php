@@ -352,7 +352,7 @@ try {
         return;
       }
       try {
-        const res  = await fetch(`/job-status/${jobId}`);
+        const res = await fetch(`{{ url('/job-status') }}/${jobId}`);
         const data = await res.json();
 
         if (data.status === 'done') {
