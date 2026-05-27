@@ -34,6 +34,17 @@ public function send(Request $request)
     if (!str_contains($sheet2, '/edit')) {
         return $this->error('Output sheet must be an edit link.');
     }
+    $sheet2Id = $this->extractSheetId($sheet2);
+if ($sheet2Id) {
+    $testUrl = "https://docs.google.com/spreadsheets/d/{$sheet2Id}/gviz/tq?tqx=out:csv&gid=0";
+    $testResponse = Http::timeout(10)->get($testUrl);
+    
+    if ($testResponse->status() === 403 || $testResponse->status() === 401) {
+        return $this->error(
+            'Your output sheet is not accessible. Please open the sheet → click Share → change to "Anyone with the link can Edit".'
+        );
+    }
+}
 
     if (str_contains($sheet1, '/edit')) {
         $sheet1 = explode('/edit', $sheet1)[0] . '/gviz/tq?tqx=out:csv&gid=0';
