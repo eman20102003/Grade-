@@ -34,6 +34,17 @@ public function send(Request $request)
     if (!str_contains($sheet2, '/edit')) {
         return $this->error('Output sheet must be an edit link.');
     }
+    $sheet2Id = $this->extractSheetId($sheet2);
+if ($sheet2Id) {
+    $testUrl = "https://docs.google.com/spreadsheets/d/{$sheet2Id}/gviz/tq?tqx=out:csv&gid=0";
+    $testResponse = Http::timeout(10)->get($testUrl);
+    
+    if ($testResponse->status() === 403 || $testResponse->status() === 401) {
+        return $this->error(
+            'Your output sheet is not accessible. Please open the sheet → click Share → change to "Anyone with the link can Edit".'
+        );
+    }
+}
 
     if (str_contains($sheet1, '/edit')) {
         $sheet1 = explode('/edit', $sheet1)[0] . '/gviz/tq?tqx=out:csv&gid=0';
@@ -58,7 +69,7 @@ public function jobStatus(string $jobId)
    
     if (
         $job->status === 'pending' &&
-        $job->created_at->diffInMinutes(now()) > 15
+        $job->created_at->diffInMinutes(now()) > 30
     ) {
         $job->update(['status' => 'failed', 'result' => ['error' => 'Timed out']]);
         return response()->json(['status' => 'failed']);
@@ -121,21 +132,33 @@ public function jobStatus(string $jobId)
             return response()->json(['success' => false, 'message' => 'No headers found in the first row of the sheet.'], 422);
         }
 
-        $openAiResponse = Http::withToken(env('OPENAI_API_KEY'))
-            ->timeout(120)
-            ->retry(3, 3000, fn($exception, $response) =>
-                $exception || ($response && in_array($response->status(), [500, 429, 503]))
-            )
-            ->post('https://api.openai.com/v1/responses', [
-                'model' => 'gpt-4.1',
-                'input' => [
-                    ['role' => 'system', 'content' => $this->systemPrompt()],
-                    ['role' => 'user',   'content' => json_encode([
-                        'user_prompt'       => $prompt,
-                        'available_columns' => $headers,
-                    ], JSON_UNESCAPED_UNICODE)],
-                ],
-            ]);
+        
+                 \Log::info('About to call OpenAI', [
+    'key_exists' => !empty(env('OPENAI_API_KEY')),
+    'key_prefix'  => substr(env('OPENAI_API_KEY') ?? '', 0, 7),
+]);
+
+$openAiResponse = Http::withToken(env('OPENAI_API_KEY'))
+    ->timeout(120)
+    ->retry(3, 3000, fn($exception, $response) =>
+        $exception || ($response && in_array($response->status(), [500, 429, 503]))
+    )
+    ->post('https://api.openai.com/v1/chat/completions', [
+        'model'    => 'gpt-4-turbo',
+        'messages' => [
+            ['role' => 'system', 'content' => $this->systemPrompt()],
+            ['role' => 'user',   'content' => json_encode([
+                'user_prompt'       => $prompt,
+                'available_columns' => $headers,
+            ], JSON_UNESCAPED_UNICODE)],
+        ],
+        'temperature' => 0,
+    ]);
+
+\Log::info('OpenAI response', [
+    'status' => $openAiResponse->status(),
+    'body'   => $openAiResponse->body(),
+]);
 
         if ($openAiResponse->failed()) {
             return response()->json([
@@ -145,7 +168,8 @@ public function jobStatus(string $jobId)
             ], 500);
         }
 
-        $analysisText = $openAiResponse->json()['output'][0]['content'][0]['text'] ?? null;
+                            
+                    $analysisText = $openAiResponse->json()['choices'][0]['message']['content'] ?? null;
 
         if (!$analysisText) {
             return response()->json(['success' => false, 'message' => 'No analysis returned from OpenAI.'], 500);
