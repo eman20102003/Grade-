@@ -80,7 +80,7 @@ public function jobStatus(string $jobId)
         $job->created_at->diffInMinutes(now()) > 30
     ) {
         $job->update(['status' => 'failed', 'result' => ['error' => 'Timed out']]);
-        return response()->json(['status' => 'failed']);
+        return response()->json(['status' => 'failed', 'error' => 'Timed out']);
     }
 
     if ($job->status === 'failed') {
