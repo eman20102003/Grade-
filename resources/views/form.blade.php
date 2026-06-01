@@ -229,10 +229,10 @@
         const data = await response.json();
 
         if (!data.success) {
-          showError(response.status === 504
-            ? '⏳ Request timed out. Please try again.'
-            : data.message || 'Something went wrong. Please try again.'
-          );
+  showError(response.status === 504
+    ? '⏳ Request timed out. Please try again.'
+    : data.error || data.message || 'Something went wrong. Please try again.'
+  );
           btn.innerText = 'Analyze Prompt';
           btn.disabled = false;
           return;

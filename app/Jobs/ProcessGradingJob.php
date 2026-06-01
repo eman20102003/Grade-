@@ -58,24 +58,27 @@ class ProcessGradingJob implements ShouldQueue
               ]);
 
            $success = $response->successful() && isset($data['sheet_url']);
-
 $errorMessage = 'Processing failed in workflow.';
 if (!$success) {
     $body = $response->body();
     if (!empty($data['message'])) {
-    $errorMessage = $data['message'];
-} elseif (!empty($data['error'])) {
-    $errorMessage = $data['error'];
-} elseif (
-    $response->status() === 403 ||
-    str_contains($body, 'PERMISSION_DENIED') ||
-    str_contains($body, 'insufficientPermissions') ||
-    str_contains($body, 'The caller does not have permission')
-) {
-    $errorMessage = 'Your output sheet is not editable. Please open the sheet → click Share → change to "Anyone with the link can Edit".';
-} elseif (preg_match('/Problem in node[^\n]*\n([^\[]+)/s', $body, $matches)) {
-    $errorMessage = trim($matches[1]);
-}
+        $errorMessage = $data['message'];
+    } elseif (!empty($data['error'])) {
+        $errorMessage = $data['error'];
+    } elseif (
+        $response->status() === 403 ||
+        str_contains($body, 'PERMISSION_DENIED') ||
+        str_contains($body, 'insufficientPermissions') ||
+        str_contains($body, 'The caller does not have permission')
+    ) {
+        $errorMessage = 'Your output sheet is not editable. Please open the sheet → click Share → change to "Anyone with the link can Edit".';
+    } elseif (preg_match('/Problem in node[^\n]*\n(.*?)(?:\[|$)/s', $body, $matches)) {
+        $errorMessage = trim($matches[1]);
+    } elseif (preg_match('/"message"\s*:\s*"([^"]+)"/i', $body, $matches)) {
+        $errorMessage = trim($matches[1]);
+    } elseif (!isset($data['sheet_url'])) {
+        $errorMessage = 'Output sheet could not be written. Please make sure it is shared as "Anyone with the link can Edit".';
+    }
 }
 
 GradingJob::find($this->jobId)->update([
