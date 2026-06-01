@@ -57,11 +57,24 @@ class ProcessGradingJob implements ShouldQueue
                  'data'   => $data,
               ]);
 
-            $success = $response->successful() && isset($data['sheet_url']);
-            GradingJob::find($this->jobId)->update([
-                  'status' => $success ? 'done' : 'failed',
-                  'result' => $success ? $data : ['error' => $data['message'] ?? $data['error'] ?? $response->body() ?? 'Processing failed in workflow.'],
-            ]);
+           $success = $response->successful() && isset($data['sheet_url']);
+
+$errorMessage = 'Processing failed in workflow.';
+if (!$success) {
+    $body = $response->body();
+    if (!empty($data['message'])) {
+        $errorMessage = $data['message'];
+    } elseif (!empty($data['error'])) {
+        $errorMessage = $data['error'];
+    } elseif (preg_match('/Problem in node[^\n]*\n([^\[]+)/s', $body, $matches)) {
+        $errorMessage = trim($matches[1]);
+    }
+}
+
+GradingJob::find($this->jobId)->update([
+    'status' => $success ? 'done' : 'failed',
+    'result' => $success ? $data : ['error' => $errorMessage],
+]);
 
         } catch (\Exception $e) {
             GradingJob::find($this->jobId)->update([

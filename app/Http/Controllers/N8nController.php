@@ -34,36 +34,45 @@ public function send(Request $request)
     if (!str_contains($sheet2, '/edit')) {
         return $this->error('Output sheet must be an edit link.');
     }
-    $sheet2Id = $this->extractSheetId($sheet2);
+  $sheet2Id = $this->extractSheetId($sheet2);
 if ($sheet2Id) {
-    $metaUrl = "https://docs.google.com/spreadsheets/d/{$sheet2Id}/edit";
-    $testResponse = Http::timeout(10)->get($metaUrl);
-    $body = $testResponse->body();
+    $testUrl = "https://docs.google.com/spreadsheets/d/{$sheet2Id}/gviz/tq?tqx=out:csv&gid=0";
+    $testResponse = Http::timeout(10)->get($testUrl);
 
-    if (
-        $testResponse->status() === 403 ||
-        str_contains($body, 'You need access') ||
-        str_contains($body, 'Request access')
-    ) {
+    if ($testResponse->status() === 403 || $testResponse->status() === 401) {
         return $this->error(
             'Your output sheet is not accessible. Please open the sheet → click Share → change to "Anyone with the link can Edit".'
         );
     }
 
-    if (!str_contains($body, 'edit') && !str_contains($body, 'spreadsheet')) {
+    $driveUrl = "https://docs.google.com/spreadsheets/d/{$sheet2Id}/edit";
+    $driveResponse = Http::timeout(10)->get($driveUrl);
+    $driveBody = $driveResponse->body();
+
+    if (
+        str_contains($driveBody, 'You need access') ||
+        str_contains($driveBody, 'Request access') ||
+        str_contains($driveBody, 'Sign in')
+    ) {
         return $this->error(
-            'Your output sheet must be set to "Anyone with the link can Edit".'
+            'Your output sheet is not accessible. Please open the sheet → click Share → change to "Anyone with the link can Edit".'
         );
     }
 }
 
-    if (str_contains($sheet1, '/edit')) {
-        $sheet1 = explode('/edit', $sheet1)[0] . '/gviz/tq?tqx=out:csv&gid=0';
-    }
+if (str_contains($sheet1, '/edit')) {
+    $sheet1 = explode('/edit', $sheet1)[0] . '/gviz/tq?tqx=out:csv&gid=0';
+}
 
+try {
     $testResponse = Http::timeout(10)->get($sheet1);
 
-    if ($testResponse->status() === 403 || $testResponse->status() === 401) {
+    if ($testResponse->status() === 403 || $testResponse->status() === 401 || $testResponse->status() === 302) {
+        return $this->error(
+            'Your input sheet is not accessible. Please open the sheet → click Share → change to "Anyone with the link can view".'
+        );
+    }
+} catch (\Exception $e) {
     return $this->error(
         'Your input sheet is not accessible. Please open the sheet → click Share → change to "Anyone with the link can view".'
     );
