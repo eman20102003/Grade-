@@ -220,7 +220,7 @@
 
         const contentType = response.headers.get('content-type');
         if (!contentType || !contentType.includes('application/json')) {
-          showError(`Server error (${response.status}) — please try again.`);
+         showError('⚠️ Unable to reach the server right now. Please check your connection and try again.');
           btn.innerText = 'Analyze Prompt';
           btn.disabled = false;
           return;
@@ -290,6 +290,7 @@
 
   hideError();
   resetInputErrors();
+  card.classList.remove('show');
 
   if (btn.dataset.loading === 'true') return;
 
@@ -375,7 +376,7 @@ try {
 
         } else if (data.status === 'failed') {
           clearInterval(interval);
-          showError('Processing failed. Please try again.');
+          showError(data.error || 'Processing failed. Please try again.');
           resetCalculateBtn();
         }
         // pending  استمر

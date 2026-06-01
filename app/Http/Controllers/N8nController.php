@@ -50,6 +50,14 @@ if ($sheet2Id) {
         $sheet1 = explode('/edit', $sheet1)[0] . '/gviz/tq?tqx=out:csv&gid=0';
     }
 
+    $testResponse = Http::timeout(10)->get($sheet1);
+
+    if ($testResponse->status() === 403 || $testResponse->status() === 401) {
+    return $this->error(
+        'Your input sheet is not accessible. Please open the sheet → click Share → change to "Anyone with the link can view".'
+    );
+}
+
    $jobId    = Str::uuid()->toString();
 $analysis = is_array($request->analysis) ? $request->analysis : null; // ← normalize here
 
@@ -75,7 +83,12 @@ public function jobStatus(string $jobId)
         return response()->json(['status' => 'failed']);
     }
 
-
+    if ($job->status === 'failed') {
+    return response()->json([
+        'status' => 'failed',
+        'error'  => $job->result['error'] ?? 'Processing failed. Please try again.',
+    ]);
+}
 
     if ($job->status === 'done') {
         $data = $job->result;
