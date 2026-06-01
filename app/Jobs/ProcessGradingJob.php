@@ -63,12 +63,19 @@ $errorMessage = 'Processing failed in workflow.';
 if (!$success) {
     $body = $response->body();
     if (!empty($data['message'])) {
-        $errorMessage = $data['message'];
-    } elseif (!empty($data['error'])) {
-        $errorMessage = $data['error'];
-    } elseif (preg_match('/Problem in node[^\n]*\n([^\[]+)/s', $body, $matches)) {
-        $errorMessage = trim($matches[1]);
-    }
+    $errorMessage = $data['message'];
+} elseif (!empty($data['error'])) {
+    $errorMessage = $data['error'];
+} elseif (
+    $response->status() === 403 ||
+    str_contains($body, 'PERMISSION_DENIED') ||
+    str_contains($body, 'insufficientPermissions') ||
+    str_contains($body, 'The caller does not have permission')
+) {
+    $errorMessage = 'Your output sheet is not editable. Please open the sheet → click Share → change to "Anyone with the link can Edit".';
+} elseif (preg_match('/Problem in node[^\n]*\n([^\[]+)/s', $body, $matches)) {
+    $errorMessage = trim($matches[1]);
+}
 }
 
 GradingJob::find($this->jobId)->update([

@@ -44,20 +44,6 @@ if ($sheet2Id) {
             'Your output sheet is not accessible. Please open the sheet → click Share → change to "Anyone with the link can Edit".'
         );
     }
-
-    $driveUrl = "https://docs.google.com/spreadsheets/d/{$sheet2Id}/edit";
-    $driveResponse = Http::timeout(10)->get($driveUrl);
-    $driveBody = $driveResponse->body();
-
-    if (
-        str_contains($driveBody, 'You need access') ||
-        str_contains($driveBody, 'Request access') ||
-        str_contains($driveBody, 'Sign in')
-    ) {
-        return $this->error(
-            'Your output sheet is not accessible. Please open the sheet → click Share → change to "Anyone with the link can Edit".'
-        );
-    }
 }
 
 if (str_contains($sheet1, '/edit')) {
@@ -152,12 +138,12 @@ public function jobStatus(string $jobId)
         $csvUrl      = "https://docs.google.com/spreadsheets/d/{$sheetId}/export?format=csv&gid={$gid}";
         $csvResponse = Http::timeout(60)->retry(3, 2000)->get($csvUrl);
 
-        if ($csvResponse->failed()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Could not read Google Sheet. Make sure it is public or accessible.',
-            ], 500);
-        }
+  if ($csvResponse->failed()) {
+    return response()->json([
+        'success' => false,
+        'message' => 'Your input sheet is not accessible. Please open the sheet → click Share → change to "Anyone with the link can view".',
+    ], 200);
+}
 
         $headers = $this->extractHeadersFromCsv($csvResponse->body());
 
