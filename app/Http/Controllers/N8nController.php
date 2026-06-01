@@ -36,12 +36,23 @@ public function send(Request $request)
     }
     $sheet2Id = $this->extractSheetId($sheet2);
 if ($sheet2Id) {
-    $testUrl = "https://docs.google.com/spreadsheets/d/{$sheet2Id}/gviz/tq?tqx=out:csv&gid=0";
-    $testResponse = Http::timeout(10)->get($testUrl);
-    
-    if ($testResponse->status() === 403 || $testResponse->status() === 401) {
+    $metaUrl = "https://docs.google.com/spreadsheets/d/{$sheet2Id}/edit";
+    $testResponse = Http::timeout(10)->get($metaUrl);
+    $body = $testResponse->body();
+
+    if (
+        $testResponse->status() === 403 ||
+        str_contains($body, 'You need access') ||
+        str_contains($body, 'Request access')
+    ) {
         return $this->error(
             'Your output sheet is not accessible. Please open the sheet → click Share → change to "Anyone with the link can Edit".'
+        );
+    }
+
+    if (!str_contains($body, 'edit') && !str_contains($body, 'spreadsheet')) {
+        return $this->error(
+            'Your output sheet must be set to "Anyone with the link can Edit".'
         );
     }
 }
@@ -86,7 +97,7 @@ public function jobStatus(string $jobId)
     if ($job->status === 'failed') {
     return response()->json([
         'status' => 'failed',
-        'error'  => $job->result['error'] ?? 'Processing failed. Please try again.',
+        'error'  => is_string($job->result['error'] ?? null) ? $job->result['error'] : 'Processing failed. Please try again.',
     ]);
 }
 
