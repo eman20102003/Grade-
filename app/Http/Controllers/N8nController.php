@@ -34,11 +34,11 @@ public function send(Request $request)
     if (!str_contains($sheet2, '/edit')) {
         return $this->error('Output sheet must be an edit link.');
     }
-    $sheet2Id = $this->extractSheetId($sheet2);
+  $sheet2Id = $this->extractSheetId($sheet2);
 if ($sheet2Id) {
     $testUrl = "https://docs.google.com/spreadsheets/d/{$sheet2Id}/gviz/tq?tqx=out:csv&gid=0";
     $testResponse = Http::timeout(10)->get($testUrl);
-    
+
     if ($testResponse->status() === 403 || $testResponse->status() === 401) {
         return $this->error(
             'Your output sheet is not accessible. Please open the sheet → click Share → change to "Anyone with the link can Edit".'
@@ -46,9 +46,23 @@ if ($sheet2Id) {
     }
 }
 
-    if (str_contains($sheet1, '/edit')) {
-        $sheet1 = explode('/edit', $sheet1)[0] . '/gviz/tq?tqx=out:csv&gid=0';
+if (str_contains($sheet1, '/edit')) {
+    $sheet1 = explode('/edit', $sheet1)[0] . '/gviz/tq?tqx=out:csv&gid=0';
+}
+
+try {
+    $testResponse = Http::timeout(10)->get($sheet1);
+
+    if ($testResponse->status() === 403 || $testResponse->status() === 401 || $testResponse->status() === 302) {
+        return $this->error(
+            'Your input sheet is not accessible. Please open the sheet → click Share → change to "Anyone with the link can view".'
+        );
     }
+} catch (\Exception $e) {
+    return $this->error(
+        'Your input sheet is not accessible. Please open the sheet → click Share → change to "Anyone with the link can view".'
+    );
+}
 
    $jobId    = Str::uuid()->toString();
 $analysis = is_array($request->analysis) ? $request->analysis : null; // ← normalize here
@@ -72,10 +86,15 @@ public function jobStatus(string $jobId)
         $job->created_at->diffInMinutes(now()) > 30
     ) {
         $job->update(['status' => 'failed', 'result' => ['error' => 'Timed out']]);
-        return response()->json(['status' => 'failed']);
+        return response()->json(['status' => 'failed', 'error' => 'Timed out']);
     }
 
-
+    if ($job->status === 'failed') {
+    return response()->json([
+        'status' => 'failed',
+        'error'  => is_string($job->result['error'] ?? null) ? $job->result['error'] : 'Processing failed. Please try again.',
+    ]);
+}
 
     if ($job->status === 'done') {
         $data = $job->result;
@@ -118,13 +137,12 @@ public function jobStatus(string $jobId)
 
         $csvUrl      = "https://docs.google.com/spreadsheets/d/{$sheetId}/export?format=csv&gid={$gid}";
         $csvResponse = Http::timeout(60)->retry(3, 2000)->get($csvUrl);
-
-        if ($csvResponse->failed()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Could not read Google Sheet. Make sure it is public or accessible.',
-            ], 500);
-        }
+if ($csvResponse->failed()) {
+    return response()->json([
+        'success' => false,
+        'error' => 'Your input sheet is not accessible. Please open the sheet → click Share → change to "Anyone with the link can view".',
+    ], 200);
+}
 
         $headers = $this->extractHeadersFromCsv($csvResponse->body());
 
