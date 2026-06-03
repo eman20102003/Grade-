@@ -14,12 +14,16 @@ class N8nController extends Controller
     //  Send to n8n 
 public function send(Request $request)
 {
-    $sheet1   = $request->sheet1;
-    $sheet2   = $request->sheet2;
-    $prompt   = $request->prompt;
+    $sheet1 = $request->sheet1;
+    $sheet2 = $request->sheet2;
+    $prompt = $request->prompt;
     $analysis = $request->analysis;
 
-    if (!$sheet1 || !$sheet2 || !$prompt || !$analysis) {
+    if (is_string($analysis)) {
+        $analysis = json_decode($analysis, true);
+    }
+
+    if (!$sheet1 || !$sheet2 || !$prompt || empty($analysis)) {
         return $this->error('Please fill in all required fields before submitting.');
     }
 
@@ -34,43 +38,51 @@ public function send(Request $request)
     if (!str_contains($sheet2, '/edit')) {
         return $this->error('Output sheet must be an edit link.');
     }
-  $sheet2Id = $this->extractSheetId($sheet2);
-if ($sheet2Id) {
-    $testUrl = "https://docs.google.com/spreadsheets/d/{$sheet2Id}/gviz/tq?tqx=out:csv&gid=0";
-    $testResponse = Http::timeout(10)->get($testUrl);
 
-    if ($testResponse->status() === 403 || $testResponse->status() === 401) {
-        return $this->error(
-            'Your output sheet is not accessible. Please open the sheet → click Share → change to "Anyone with the link can Edit".'
-        );
+    $sheet1CsvUrl = $this->toCsvUrl($sheet1);
+    $sheet2CsvUrl = $this->toCsvUrl($sheet2);
+
+    if (!$sheet1CsvUrl) {
+        return $this->error('Invalid input sheet URL.');
     }
-}
 
-if (str_contains($sheet1, '/edit')) {
-    $sheet1 = explode('/edit', $sheet1)[0] . '/gviz/tq?tqx=out:csv&gid=0';
-}
+    if (!$sheet2CsvUrl) {
+        return $this->error('Invalid output sheet URL.');
+    }
 
-try {
-    $testResponse = Http::timeout(10)->get($sheet1);
-
-    if ($testResponse->status() === 403 || $testResponse->status() === 401 || $testResponse->status() === 302) {
-        return $this->error(
+    try {
+        $this->validateSheetAccess(
+            $sheet1CsvUrl,
             'Your input sheet is not accessible. Please open the sheet → click Share → change to "Anyone with the link can view".'
         );
+
+        $this->validateSheetAccess(
+            $sheet2CsvUrl,
+            'Your output sheet is not accessible. Please open the sheet → click Share → change to "Anyone with the link can Edit".'
+        );
+    } catch (\Exception $e) {
+        return $this->error($e->getMessage());
     }
-} catch (\Exception $e) {
-    return $this->error(
-        'Your input sheet is not accessible. Please open the sheet → click Share → change to "Anyone with the link can view".'
+
+    $jobId = Str::uuid()->toString();
+
+    GradingJob::create([
+        'id' => $jobId,
+        'status' => 'pending',
+    ]);
+
+    ProcessGradingJob::dispatch(
+        $jobId,
+        $sheet1CsvUrl,
+        $sheet2,
+        $prompt,
+        $analysis
     );
-}
 
-   $jobId    = Str::uuid()->toString();
-$analysis = is_array($request->analysis) ? $request->analysis : null; // ← normalize here
-
-GradingJob::create(['id' => $jobId, 'status' => 'pending']);
-ProcessGradingJob::dispatch($jobId, $sheet1, $sheet2, $prompt, $analysis);
-
-return response()->json(['success' => true, 'job_id' => $jobId]);
+    return response()->json([
+        'success' => true,
+        'job_id' => $jobId,
+    ]);
 }
 
 public function jobStatus(string $jobId)
@@ -233,6 +245,31 @@ $openAiResponse = Http::withToken(env('OPENAI_API_KEY'))
         preg_match('/gid=([0-9]+)/', $url, $matches);
         return $matches[1] ?? null;
     }
+
+    private function toCsvUrl(string $url): ?string
+    {
+        $sheetId = $this->extractSheetId($url);
+        $gid = $this->extractGid($url) ?? '0';
+
+        if (!$sheetId) {
+            return null;
+         }
+
+        return "https://docs.google.com/spreadsheets/d/{$sheetId}/gviz/tq?tqx=out:csv&gid={$gid}";
+    }
+
+    private function validateSheetAccess(string $url, string $message): void
+   {
+        try {
+           $response = Http::timeout(10)->get($url);
+
+           if (in_array($response->status(), [401, 403, 302, 404])) {
+               throw new \Exception($message);
+           }
+        } catch (\Exception $e) {
+           throw new \Exception($message);
+        }
+   }
 
     private function extractHeadersFromCsv(string $content): array
     {
