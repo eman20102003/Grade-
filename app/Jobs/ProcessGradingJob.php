@@ -38,59 +38,50 @@ class ProcessGradingJob implements ShouldQueue
         public array|null   $analysis   //  nullable frontend may not have analyzed yet
     ) {}
 
-    public function handle(): void
-    {
-        try {
-            $response = Http::timeout(600)
-              ->connectTimeout(15) 
-                ->post(env('N8N_WEBHOOK_URL'), [
-                    'sheet1'   => $this->sheet1,
-                    'sheet2'   => $this->sheet2,
-                    'prompt'   => $this->prompt,
-                    'analysis' => $this->analysis ?? [],
-                ]);
+   public function handle(): void
+{
+    try {
+        $response = Http::timeout(600)
+            ->connectTimeout(15)
+            ->post(env('N8N_WEBHOOK_URL'), [
+                'sheet1'   => $this->sheet1,
+                'sheet2'   => $this->sheet2,
+                'prompt'   => $this->prompt,
+                'analysis' => $this->analysis ?? [],
+            ]);
 
-            $data = $response->json();
+        $data = $response->json();
 
-            \Log::info('n8n response', [
-                 'status' => $response->status(),
-                 'data'   => $data,
-              ]);
+        \Log::info('n8n response', [
+            'status' => $response->status(),
+            'data'   => $data,
+        ]);
 
-           $success = $response->successful() && isset($data['sheet_url']);
-$errorMessage = 'Processing failed in workflow.';
-if (!$success) {
-    $body = $response->body();
-    if (!empty($data['message'])) {
-        $errorMessage = $data['message'];
-    } elseif (!empty($data['error'])) {
-        $errorMessage = $data['error'];
-    } elseif (
-        $response->status() === 403 ||
-        str_contains($body, 'PERMISSION_DENIED') ||
-        str_contains($body, 'insufficientPermissions') ||
-        str_contains($body, 'The caller does not have permission')
-    ) {
-        $errorMessage = 'Your output sheet is not editable. Please open the sheet → click Share → change to "Anyone with the link can Edit".';
-    } elseif (preg_match('/Problem in node[^\n]*\n(.*?)(?:\[|$)/s', $body, $matches)) {
-        $errorMessage = trim($matches[1]);
-    } elseif (preg_match('/"message"\s*:\s*"([^"]+)"/i', $body, $matches)) {
-        $errorMessage = trim($matches[1]);
-    } elseif (!isset($data['sheet_url'])) {
-        $errorMessage = 'Output sheet could not be written. Please make sure it is shared as "Anyone with the link can Edit".';
-    }
-}
+        $success = $response->successful() && isset($data['sheet_url']);
 
-GradingJob::find($this->jobId)->update([
-    'status' => $success ? 'done' : 'failed',
-    'result' => $success ? $data : ['error' => $errorMessage],
-]);
+        if (!$success) {
+            $errorMessage =
+                $data['error']   ??
+                $data['message'] ??
+                'Processing failed. Please try again.';
 
-        } catch (\Exception $e) {
             GradingJob::find($this->jobId)->update([
                 'status' => 'failed',
-                'result' => ['error' => $e->getMessage()],
+                'result' => ['error' => $errorMessage],
             ]);
+            return;
         }
+
+        GradingJob::find($this->jobId)->update([
+            'status' => 'done',
+            'result' => $data,
+        ]);
+
+    } catch (\Exception $e) {
+        GradingJob::find($this->jobId)->update([
+            'status' => 'failed',
+            'result' => ['error' => $e->getMessage()],
+        ]);
     }
+}
 }

@@ -147,12 +147,21 @@ public function jobStatus(string $jobId)
             ], 422);
         }
 
-        $csvUrl      = "https://docs.google.com/spreadsheets/d/{$sheetId}/export?format=csv&gid={$gid}";
-        $csvResponse = Http::timeout(60)->retry(3, 2000)->get($csvUrl);
+     $csvUrl = "https://docs.google.com/spreadsheets/d/{$sheetId}/export?format=csv&gid={$gid}";
+
+try {
+    $csvResponse = Http::timeout(60)->retry(3, 2000)->get($csvUrl);
+} catch (\Exception $e) {
+    return response()->json([
+        'success' => false,
+        'message' => 'Your input sheet is not accessible. Please open the sheet → click Share → change to "Anyone with the link can view".',
+    ], 200);
+}
+
 if ($csvResponse->failed()) {
     return response()->json([
         'success' => false,
-        'error' => 'Your input sheet is not accessible. Please open the sheet → click Share → change to "Anyone with the link can view".',
+        'message' => 'Your input sheet is not accessible. Please open the sheet → click Share → change to "Anyone with the link can view".',
     ], 200);
 }
 
