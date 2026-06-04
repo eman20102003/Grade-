@@ -56,10 +56,10 @@ public function send(Request $request)
             'Your input sheet is not accessible. Please open the sheet → click Share → change to "Anyone with the link can view".'
         );
 
-        $this->validateSheetWriteAccess(
-            $sheet2,
-           'Your output sheet is not editable. Please open the sheet → click Share → change to "Anyone with the link can edit".'
-       );
+        $this->validateSheetAccess(
+            $sheet2CsvUrl,
+            'Your output sheet is not accessible. Please open the sheet → click Share → change to "Anyone with the link can view".'
+);
     } catch (\Exception $e) {
         return $this->error($e->getMessage());
     }
@@ -285,28 +285,7 @@ $openAiResponse = Http::withToken(env('OPENAI_API_KEY'))
         }
    }
 
-private function validateSheetWriteAccess(string $url, string $message): void
-{
-    $sheetId = $this->extractSheetId($url);
 
-    try {
-        $response = Http::timeout(10)
-            ->post("https://sheets.googleapis.com/v4/spreadsheets/{$sheetId}/values/A1:append?valueInputOption=RAW", [
-                'values' => [['test']]
-            ]);
-
-        $status = $response->status();
-
-        // 403 = view only أو ممنوع
-        // 401 = محتاج login = مش public
-        if ($status === 403 || $status === 401) {
-            throw new \Exception($message);
-        }
-
-    } catch (\Exception $e) {
-        throw new \Exception($message);
-    }
-}
 
     private function extractHeadersFromCsv(string $content): array
     {

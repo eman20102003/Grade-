@@ -208,8 +208,12 @@
   btn.innerHTML = '<span class="loader"></span> Analyzing...';
 
   const controller = new AbortController();
-  const offlineHandler = () => controller.abort();
-  window.addEventListener('offline', offlineHandler);
+  const connectionCheck = setInterval(() => {
+    if (!navigator.onLine) {
+      clearInterval(connectionCheck);
+      controller.abort();
+    }
+  }, 1000);
 
   try {
     const response = await fetch("{{ route('prompt.analyze') }}", {
@@ -222,7 +226,7 @@
       signal: controller.signal
     });
 
-    window.removeEventListener('offline', offlineHandler);
+    clearInterval(connectionCheck);
 
     const contentType = response.headers.get('content-type');
     if (!contentType || !contentType.includes('application/json')) {
@@ -261,9 +265,9 @@
     document.getElementById('actionBtns').style.display = 'flex';
 
   } catch (err) {
-    window.removeEventListener('offline', offlineHandler);
+    clearInterval(connectionCheck);
     if (err.name === 'AbortError') {
-      showError('⚠️ Connection lost. Please check your internet and try again.');
+      showError('⏳ Connection lost. Please check your internet and try again.');
     } else {
       showError('⚠️ No internet connection or server error. Please try again.');
     }
