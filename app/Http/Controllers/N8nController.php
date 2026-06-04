@@ -285,23 +285,42 @@ $openAiResponse = Http::withToken(env('OPENAI_API_KEY'))
         }
    }
 
-   private function validateSheetWriteAccess(string $url, string $message): void
+ private function validateSheetWriteAccess(string $url, string $message): void
 {
     $sheetId = $this->extractSheetId($url);
-    
-    $editUrl = "https://docs.google.com/spreadsheets/d/{$sheetId}/edit";
-    
-    $response = Http::timeout(10)
-        ->withHeaders(['Accept' => 'text/html'])
-        ->get($editUrl);
-    
-    $body = $response->body();
-    
-    if (
-        str_contains($body, 'accounts.google.com') ||
-        str_contains($body, 'ServiceLogin') ||
-        $response->status() === 403
-    ) {
+
+    try {
+        // نجيب صفحة الشيت ونشوف إذا بتحتاج login
+        $response = Http::timeout(15)
+            ->withHeaders([
+                'Accept' => 'text/html',
+                'User-Agent' => 'Mozilla/5.0'
+            ])
+            ->get("https://docs.google.com/spreadsheets/d/{$sheetId}/edit");
+
+        $body = $response->body();
+
+        // لو بده login يعني مش public
+        if (
+            str_contains($body, 'accounts.google.com') ||
+            str_contains($body, 'ServiceLogin') ||
+            str_contains($body, 'signin/v2') ||
+            str_contains($body, 'checkCookie') ||
+            $response->status() === 403
+        ) {
+            throw new \Exception($message);
+        }
+
+        // لو الصفحة فيها "View only" يعني مش محرر
+        if (
+            str_contains($body, 'You need permission') ||
+            str_contains($body, 'view only') ||
+            str_contains($body, 'viewonly')
+        ) {
+            throw new \Exception($message);
+        }
+
+    } catch (\Exception $e) {
         throw new \Exception($message);
     }
 }
