@@ -38,7 +38,7 @@ class ProcessGradingJob implements ShouldQueue
         public array|null   $analysis   //  nullable frontend may not have analyzed yet
     ) {}
 
-  public function handle(): void
+ public function handle(): void
 {
     try {
         $response = Http::timeout(600)
@@ -50,13 +50,15 @@ class ProcessGradingJob implements ShouldQueue
                 'analysis' => $this->analysis ?? [],
             ]);
 
-        $raw  = $response->json();
-        $data = is_array($raw) && isset($raw[0]) ? $raw[0] : $raw;
+        $raw = $response->json();
 
-        \Log::info('n8n response', [
+        \Log::info('n8n RAW response', [
             'status' => $response->status(),
-            'data'   => $data,
+            'raw'    => $raw,
+            'body'   => $response->body(),
         ]);
+
+        $data = is_array($raw) && isset($raw[0]) ? $raw[0] : $raw;
 
         if (isset($data['success']) && $data['success'] === false) {
             GradingJob::find($this->jobId)->update([
