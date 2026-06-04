@@ -208,15 +208,30 @@
       btn.disabled = true;
       btn.innerHTML = '<span class="loader"></span> Analyzing...';
 
+      const controller = new AbortController();
+      const offlineHandler = () => controller.abort();
+      window.addEventListener('offline', offlineHandler);
+
+      let response;
       try {
-        const response = await fetch("{{ route('prompt.analyze') }}", {
+        response = await fetch("{{ route('prompt.analyze') }}", {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'X-CSRF-TOKEN': '{{ csrf_token() }}'
           },
-          body: JSON.stringify({ sheet_url: sheetUrl, prompt: prompt })
+          body: JSON.stringify({ sheet_url: sheetUrl, prompt: prompt }),
+          signal: controller.signal
         });
+      } catch (err) {
+        window.removeEventListener('offline', offlineHandler);
+        showError('⚠️ No internet connection. Please check your network and try again.');
+        btn.innerText = 'Analyze Prompt';
+        btn.disabled = false;
+        return;
+      } finally {
+        window.removeEventListener('offline', offlineHandler);
+      }
 
         const contentType = response.headers.get('content-type');
         if (!contentType || !contentType.includes('application/json')) {
@@ -268,7 +283,7 @@
       document.getElementById('readyBox').style.display = '';
       document.querySelector('.stats').style.display = '';
       document.getElementById('actionBtns').style.display = 'none';
-      document.getElementById('resultCardTitle').innerText = 'Result Summary :';
+      document.getElementById(  'resultCardTitle').innerText = 'Result Summary :';
       hideError();
 
       const analyzeBtn = document.getElementById('analyzePromptBtn');

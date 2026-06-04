@@ -56,10 +56,10 @@ public function send(Request $request)
             'Your input sheet is not accessible. Please open the sheet → click Share → change to "Anyone with the link can view".'
         );
 
-        $this->validateSheetAccess(
-            $sheet2CsvUrl,
-            'Your output sheet is not accessible. Please open the sheet → click Share → change to "Anyone with the link can Edit".'
-        );
+        $this->validateSheetWriteAccess(
+            $sheet2,
+           'Your output sheet is not editable. Please open the sheet → click Share → change to "Anyone with the link can edit".'
+       );
     } catch (\Exception $e) {
         return $this->error($e->getMessage());
     }
@@ -170,7 +170,12 @@ if ($csvResponse->failed()) {
         if (empty($headers)) {
             return response()->json(['success' => false, 'message' => 'No headers found in the first row of the sheet.'], 422);
         }
-
+        if ($this->headersLookLikeData($headers)) {
+           return response()->json([
+                'success' => false,
+                'message' => 'Your sheet appears to be missing column headers. Please add a header row as the first row (e.g. Student Name, Quiz 1, Midterm...).',
+            ], 422);
+            }
         
                  \Log::info('About to call OpenAI', [
     'key_exists' => !empty(env('OPENAI_API_KEY')),
@@ -280,6 +285,27 @@ $openAiResponse = Http::withToken(env('OPENAI_API_KEY'))
         }
    }
 
+   private function validateSheetWriteAccess(string $url, string $message): void
+{
+    $sheetId = $this->extractSheetId($url);
+    
+    $editUrl = "https://docs.google.com/spreadsheets/d/{$sheetId}/edit";
+    
+    $response = Http::timeout(10)
+        ->withHeaders(['Accept' => 'text/html'])
+        ->get($editUrl);
+    
+    $body = $response->body();
+    
+    if (
+        str_contains($body, 'accounts.google.com') ||
+        str_contains($body, 'ServiceLogin') ||
+        $response->status() === 403
+    ) {
+        throw new \Exception($message);
+    }
+}
+
     private function extractHeadersFromCsv(string $content): array
     {
         $content = trim($content);
@@ -318,6 +344,17 @@ $openAiResponse = Http::withToken(env('OPENAI_API_KEY'))
 
         return array_values(array_filter(array_map('trim', $headers), fn($h) => $h !== ''));
     }
+
+    private function headersLookLikeData(array $headers): bool
+{
+    $numericCount = 0;
+    foreach ($headers as $h) {
+        if (is_numeric($h) || preg_match('/^\d{1,2}[\/\-]\d{1,2}/', $h) || trim($h) === '') {
+            $numericCount++;
+        }
+    }
+    return $numericCount > count($headers) / 2;
+}
 
     private function systemPrompt(): string
     {
