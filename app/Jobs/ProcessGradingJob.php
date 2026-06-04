@@ -38,7 +38,7 @@ class ProcessGradingJob implements ShouldQueue
         public array|null   $analysis   //  nullable frontend may not have analyzed yet
     ) {}
 
-   public function handle(): void
+  public function handle(): void
 {
     try {
         $response = Http::timeout(600)
@@ -50,33 +50,26 @@ class ProcessGradingJob implements ShouldQueue
                 'analysis' => $this->analysis ?? [],
             ]);
 
-        $data = $response->json();
+        $raw  = $response->json();
+        $data = is_array($raw) && isset($raw[0]) ? $raw[0] : $raw;
 
         \Log::info('n8n response', [
             'status' => $response->status(),
             'data'   => $data,
         ]);
+
         if (isset($data['success']) && $data['success'] === false) {
-              GradingJob::find($this->jobId)->update([
-               'status' => 'failed',
-               'result' => ['error' => $data['error'] ?? 'Processing failed. Please try again.'],
-             ]);
-         return;
-       }
-
-        $success = $response->successful() && isset($data['sheet_url']);
-
-        if (!$success) {
-            $errorMessage =
-               $data['error']       ??
-               $data[0]['error']    ??
-               $data['message']     ??
-               $data[0]['message']  ??
-               'Processing failed. Please try again.';
-
             GradingJob::find($this->jobId)->update([
                 'status' => 'failed',
-                'result' => ['error' => $errorMessage],
+                'result' => ['error' => $data['error'] ?? 'Processing failed. Please try again.'],
+            ]);
+            return;
+        }
+
+        if (!$response->successful() || !isset($data['sheet_url'])) {
+            GradingJob::find($this->jobId)->update([
+                'status' => 'failed',
+                'result' => ['error' => $data['error'] ?? $data['message'] ?? 'Processing failed. Please try again.'],
             ]);
             return;
         }
@@ -92,5 +85,4 @@ class ProcessGradingJob implements ShouldQueue
             'result' => ['error' => $e->getMessage()],
         ]);
     }
-}
-}
+}}
