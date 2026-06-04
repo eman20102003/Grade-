@@ -208,7 +208,8 @@
   btn.innerHTML = '<span class="loader"></span> Analyzing...';
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 60000);
+  const offlineHandler = () => controller.abort();
+  window.addEventListener('offline', offlineHandler);
 
   try {
     const response = await fetch("{{ route('prompt.analyze') }}", {
@@ -221,7 +222,7 @@
       signal: controller.signal
     });
 
-    clearTimeout(timeoutId);
+    window.removeEventListener('offline', offlineHandler);
 
     const contentType = response.headers.get('content-type');
     if (!contentType || !contentType.includes('application/json')) {
@@ -260,17 +261,16 @@
     document.getElementById('actionBtns').style.display = 'flex';
 
   } catch (err) {
-    clearTimeout(timeoutId);
+    window.removeEventListener('offline', offlineHandler);
     if (err.name === 'AbortError') {
-      showError('⏳ Request timed out or connection lost. Please try again.');
+      showError('⚠️ Connection lost. Please check your internet and try again.');
     } else {
       showError('⚠️ No internet connection or server error. Please try again.');
     }
     btn.innerText = 'Analyze Prompt';
     btn.disabled = false;
   }
-  });
-
+});
     //  Re-analyze 
 
     document.getElementById('reAnalyzeBtn').addEventListener('click', function () {

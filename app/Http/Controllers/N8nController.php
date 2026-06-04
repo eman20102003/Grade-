@@ -285,38 +285,21 @@ $openAiResponse = Http::withToken(env('OPENAI_API_KEY'))
         }
    }
 
- private function validateSheetWriteAccess(string $url, string $message): void
+private function validateSheetWriteAccess(string $url, string $message): void
 {
     $sheetId = $this->extractSheetId($url);
 
     try {
-        // نجيب صفحة الشيت ونشوف إذا بتحتاج login
-        $response = Http::timeout(15)
-            ->withHeaders([
-                'Accept' => 'text/html',
-                'User-Agent' => 'Mozilla/5.0'
-            ])
-            ->get("https://docs.google.com/spreadsheets/d/{$sheetId}/edit");
+        $response = Http::timeout(10)
+            ->post("https://sheets.googleapis.com/v4/spreadsheets/{$sheetId}/values/A1:append?valueInputOption=RAW", [
+                'values' => [['test']]
+            ]);
 
-        $body = $response->body();
+        $status = $response->status();
 
-        // لو بده login يعني مش public
-        if (
-            str_contains($body, 'accounts.google.com') ||
-            str_contains($body, 'ServiceLogin') ||
-            str_contains($body, 'signin/v2') ||
-            str_contains($body, 'checkCookie') ||
-            $response->status() === 403
-        ) {
-            throw new \Exception($message);
-        }
-
-        // لو الصفحة فيها "View only" يعني مش محرر
-        if (
-            str_contains($body, 'You need permission') ||
-            str_contains($body, 'view only') ||
-            str_contains($body, 'viewonly')
-        ) {
+        // 403 = view only أو ممنوع
+        // 401 = محتاج login = مش public
+        if ($status === 403 || $status === 401) {
             throw new \Exception($message);
         }
 
