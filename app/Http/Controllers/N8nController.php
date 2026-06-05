@@ -102,23 +102,34 @@ public function jobStatus(string $jobId)
     }
 
     if ($job->status === 'failed') {
+    $result = $job->result;
+    
+    if (is_string($result)) {
+        $result = json_decode($result, true);
+    }
+    
     return response()->json([
         'status' => 'failed',
-        'error'  => is_string($job->result['error'] ?? null) ? $job->result['error'] : 'Processing failed. Please try again.',
+        'error'  => $result['error'] ?? 'Processing failed. Please try again.',
     ]);
 }
 
-    if ($job->status === 'done') {
-        $data = $job->result;
-        return response()->json([
-            'status'      => 'done',
-            'sheet_url'   => $data['sheet_url']   ?? null,
-            'avg'         => $data['avg']          ?? null,
-            'max'         => $data['max']          ?? null,
-            'min'         => $data['min']          ?? null,
-            'explanation' => $data['explanation']  ?? null,
-        ]);
+   if ($job->status === 'done') {
+    $data = $job->result;
+    
+    if (is_string($data)) {
+        $data = json_decode($data, true);
     }
+    
+    return response()->json([
+        'status'      => 'done',
+        'sheet_url'   => $data['sheet_url']   ?? null,
+        'avg'         => $data['avg']          ?? null,
+        'max'         => $data['max']          ?? null,
+        'min'         => $data['min']          ?? null,
+        'explanation' => $data['explanation']  ?? null,
+    ]);
+}
 
     return response()->json(['status' => $job->status]); // pending أو failed
 }
