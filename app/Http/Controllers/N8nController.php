@@ -247,13 +247,19 @@ $openAiResponse = Http::withToken(env('OPENAI_API_KEY'))
         ]);
     }
 
-    public function handleN8nError(Request $request)
+   public function handleN8nError(Request $request)
 {
-    GradingJob::where('id', $request->job_id)->update([
-        'status' => 'failed',
-        'result' => ['error' => $request->error_message ?? 'Processing failed.']
-    ]);
-    return response()->json(['ok' => true]);
+    $jobId = $request->input('job_id');
+    $errorMessage = $request->input('error_message', 'Processing failed. Please try again.');
+
+    if ($jobId) {
+        GradingJob::where('id', $jobId)->update([
+            'status' => 'failed',
+            'result' => ['error' => $errorMessage]
+        ]);
+    }
+
+    return response()->json(['success' => false, 'error' => $errorMessage]);
 }
 
     //  Helpers 
