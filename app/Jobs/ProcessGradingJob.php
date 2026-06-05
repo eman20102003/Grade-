@@ -48,6 +48,7 @@ class ProcessGradingJob implements ShouldQueue
                 'sheet2'   => $this->sheet2,
                 'prompt'   => $this->prompt,
                 'analysis' => $this->analysis ?? [],
+                'job_id'   => $this->jobId,
             ]);
 
         $raw = $response->json();
