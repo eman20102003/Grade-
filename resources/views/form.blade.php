@@ -22,6 +22,7 @@
 
     <h1 class="form-title">Smart Grade Analyzer</h1>
     <p class="form-subtitle">Link your data and analyze grades automatically.</p>
+     <div class="content-wrapper">
 
     <div class="form-card">
 
@@ -152,6 +153,7 @@
         </button>
       </div>
 
+    </div>
     </div>
 
   </section>

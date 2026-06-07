@@ -141,14 +141,13 @@ body::before {
 .content-wrapper {
   display: flex;
   justify-content: center;
-  align-items: stretch; /* يجعل الكرتين بنفس الارتفاع تماماً دائماً */
   gap: 25px;
   width: 100%;
   max-width: 1300px;
   margin: 0 auto;
   flex-wrap: nowrap;
-  height: calc(100vh - 180px); /* يضمن عدم خروج الكروت عن الشاشة وعدم ظهور سكرول للمتصفح */
-  min-height: 580px;
+  align-items: flex-start;  
+  min-height: 580px;        
 }
 
 /* ================= FORM PAGE ================= */
