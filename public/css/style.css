@@ -141,15 +141,16 @@ body::before {
 .content-wrapper {
   display: flex;
   justify-content: center;
-  align-items: stretch;    /* ← هذا يساوي الارتفاع */
+  align-items: stretch; /* يجعل الكرتين بنفس الارتفاع تماماً دائماً */
   gap: 25px;
   width: 100%;
   max-width: 1300px;
   margin: 0 auto;
   flex-wrap: nowrap;
+  height: calc(100vh - 180px); /* يضمن عدم خروج الكروت عن الشاشة وعدم ظهور سكرول للمتصفح */
   min-height: 580px;
-  
 }
+
 /* ================= FORM PAGE ================= */
 .form-page {
   margin-top: 85px;
@@ -158,6 +159,8 @@ body::before {
   align-items: center;
   justify-content: flex-start;
   padding: 0 20px;
+  height: calc(100vh - 85px);
+  overflow: hidden;
 }
 
 .form-title {
@@ -188,6 +191,7 @@ body::before {
   transition: transform 0.3s, box-shadow 0.3s;
   display: flex;
   flex-direction: column; /* ترتيب العناصر داخلياً بشكل عمودي مرن */
+  overflow: hidden;
 }
 
 .form-card {
@@ -250,6 +254,8 @@ body::before {
   flex: 1; /* يجعلها تأخذ كل المساحة المتاحة عمودياً في الكرت */
   resize: none;
   min-height: 80px;
+  max-height: 150px;
+  overflow-y: auto;
 }
 
 .input-box input::placeholder,
@@ -382,7 +388,6 @@ body::before {
 
 .result-card.show {
   display: flex !important; /* عند استدعائه يظهر كـ flexbox */
-  flex-direction: column;
 }
 
 .result-header {
@@ -411,6 +416,7 @@ body::before {
   overflow-y: auto; /* سكرول داخلي فقط للـ JSON إذا كان النص عملاقاً جداً */
   margin-bottom: 12px;
   border: 1px solid #e2e8f0;
+  max-height: 350px;
 }
 
 /* STATS */
