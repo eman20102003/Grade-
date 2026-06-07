@@ -141,16 +141,15 @@ body::before {
 .content-wrapper {
   display: flex;
   justify-content: center;
-  align-items: stretch; /* يجعل الكرتين بنفس الارتفاع تماماً دائماً */
+  align-items: stretch;    /* ← هذا يساوي الارتفاع */
   gap: 25px;
   width: 100%;
   max-width: 1300px;
   margin: 0 auto;
   flex-wrap: nowrap;
-  height: calc(100vh - 180px); /* يضمن عدم خروج الكروت عن الشاشة وعدم ظهور سكرول للمتصفح */
   min-height: 580px;
+  
 }
-
 /* ================= FORM PAGE ================= */
 .form-page {
   margin-top: 85px;
@@ -383,6 +382,7 @@ body::before {
 
 .result-card.show {
   display: flex !important; /* عند استدعائه يظهر كـ flexbox */
+  flex-direction: column;
 }
 
 .result-header {
