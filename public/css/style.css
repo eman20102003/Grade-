@@ -194,8 +194,9 @@ body::before {
 .form-card {
   text-align: left;
   position: relative;
-  padding-bottom: 70px;
+  
 }
+
 
 .form-card:hover, .result-card:hover {
   transform: translateY(-4px);
@@ -344,12 +345,9 @@ body::before {
 
 .form-card > .analyze-btn,
 #actionBtns {
-  position: absolute;
-  bottom: 22px;
-  left: 25px;
-  right: 25px;
-  margin-top: 10;
-  width: calc(100% - 50px);
+  width: 100%;
+  margin-top: auto;
+  padding-top: 12px;
 }
 
 
