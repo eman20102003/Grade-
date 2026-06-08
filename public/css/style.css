@@ -193,6 +193,8 @@ body::before {
 
 .form-card {
   text-align: left;
+  position: relative;
+  padding-bottom: 70px;
 }
 
 .form-card:hover, .result-card:hover {
@@ -316,6 +318,10 @@ body::before {
   cursor: pointer;
   box-shadow: 0 6px 15px rgba(47,86,192,0.25);
   transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .analyze-btn:hover {
@@ -329,14 +335,25 @@ body::before {
 
 #actionBtns {
   display: none; 
-  gap: 10px; 
-  margin-top: 10px;
+  gap: 10px;
   width: 100%;
 }
 
 #actionBtns .analyze-btn {
   margin-top: 0;
 }
+
+
+.form-card > .analyze-btn,
+#actionBtns {
+  position: absolute;
+  bottom: 22px;
+  left: 25px;
+  right: 25px;
+  margin-top: 0;
+  width: calc(100% - 50px);
+}
+
 
 /* ================= TOOLTIP ================= */
 .hint {

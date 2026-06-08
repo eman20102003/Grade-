@@ -262,6 +262,23 @@ $openAiResponse = Http::withToken(env('OPENAI_API_KEY'))
     return response()->json(['success' => false, 'error' => $errorMessage]);
 }
 
+//-------------------------------
+
+public function storeError(Request $request)
+{
+    $data = [
+        'message' => $request->input('message') ?? $request->input('error'),
+        'time'    => $request->input('time') ?? now()->toISOString(),
+    ];
+
+    \Illuminate\Support\Facades\Cache::put('n8n_last_error', $data, now()->addMinutes(30));
+    Log::error('N8N Workflow Error', $data);
+
+    return response()->json(['success' => true, 'error' => $data]);
+}
+
+//--------------------------------------
+
     //  Helpers 
 
     private function error(string $message, int $status = 200)
