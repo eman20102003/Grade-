@@ -416,24 +416,6 @@ try {
 
 
 
-let lastErrorTime = null;
-
-function showN8nError() {
-    setInterval(async () => {
-        try {
-            const res = await fetch('/api/n8n-last-error');
-            const data = await res.json();
-            if (data.error && data.error.message && data.error.time !== lastErrorTime) {
-                lastErrorTime = data.error.time;
-                showError(data.error.message);
-            }
-        } catch (e) {
-            console.error('Error checking n8n error:', e);
-        }
-    }, 2000);
-}
-
-showN8nError();
 
   </script>
 

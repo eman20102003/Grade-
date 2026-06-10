@@ -268,10 +268,10 @@ public function storeError(Request $request)
 {
     $message = $request->input('error_message') ?? 'Unknown error';
 
-    // جيب آخر job لسا pending أو شغالة
-    $job = \App\Models\GradingJob::whereIn('status', ['pending', 'processing'])
-        ->latest()
-        ->first();
+    $job = \App\Models\GradingJob::where('status', 'pending')
+    ->where('created_at', '>=', now()->subMinutes(2))
+    ->latest()
+    ->first();
 
     if ($job) {
         $job->update([
