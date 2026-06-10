@@ -107,10 +107,10 @@ public function jobStatus(string $jobId)
     if (is_string($result)) {
         $result = json_decode($result, true);
     }
-    
+    $job->delete();
     return response()->json([
         'status' => 'failed',
-        'error'  => $result['error'] ?? 'Processing failed. Please try again.',
+        'error'  => $result['error'] ?? 'Processing failed. Please check your prompt,data and try again.',
     ]);
 }
 
@@ -120,7 +120,7 @@ public function jobStatus(string $jobId)
     if (is_string($data)) {
         $data = json_decode($data, true);
     }
-    
+    $job->delete();
     return response()->json([
         'status'      => 'done',
         'sheet_url'   => $data['sheet_url']   ?? null,
@@ -250,7 +250,7 @@ $openAiResponse = Http::withToken(env('OPENAI_API_KEY'))
    public function handleN8nError(Request $request)
 {
     $jobId = $request->input('job_id');
-    $errorMessage = $request->input('error_message', 'Processing failed. Please try again.');
+    $errorMessage = $request->input('error_message', 'Processing failed. Please check your prompt,data and try again.');
 
     if ($jobId) {
         GradingJob::where('id', $jobId)->update([
