@@ -266,7 +266,7 @@ $openAiResponse = Http::withToken(env('OPENAI_API_KEY'))
 
 public function storeError(Request $request)
 {
-    $message = $request->input('message') ?? 'Unknown error';
+    $message = $request->input('error_message') ?? 'Unknown error';
 
     // جيب آخر job لسا pending أو شغالة
     $job = \App\Models\GradingJob::whereIn('status', ['pending', 'processing'])
