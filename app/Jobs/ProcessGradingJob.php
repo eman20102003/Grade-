@@ -64,7 +64,7 @@ class ProcessGradingJob implements ShouldQueue
         if (isset($data['success']) && $data['success'] === false) {
             GradingJob::find($this->jobId)->update([
                 'status' => 'failed',
-                'result' => ['error' => $data['error'] ?? 'Processing failed. Please try again.'],
+                'result' => ['error' => $data['error'] ?? 'Processing failed. Please check your prompt,data and try again.'],
             ]);
             return;
         }
@@ -72,7 +72,7 @@ class ProcessGradingJob implements ShouldQueue
         if (!$response->successful() || !isset($data['sheet_url'])) {
             GradingJob::find($this->jobId)->update([
                 'status' => 'failed',
-                'result' => ['error' => $data['error'] ?? $data['message'] ?? 'Processing failed. Please try again.'],
+                'result' => ['error' => $data['error'] ?? $data['message'] ?? 'Processing failed. Please check your prompt,data and try again.'],
             ]);
             return;
         }

@@ -267,6 +267,7 @@ $openAiResponse = Http::withToken(env('OPENAI_API_KEY'))
 public function storeError(Request $request)
 {
     $message = $request->input('error_message') ?? 'Unknown error';
+    $message = preg_replace('/\s*\[line \d+\]/', '', $message);
 
     $job = \App\Models\GradingJob::whereIn('status', ['pending', 'failed'])
         ->where('created_at', '>=', now()->subMinutes(5))
