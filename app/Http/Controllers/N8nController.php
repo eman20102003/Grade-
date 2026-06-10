@@ -266,15 +266,23 @@ $openAiResponse = Http::withToken(env('OPENAI_API_KEY'))
 
 public function storeError(Request $request)
 {
-    $data = [
-        'message' => $request->input('message') ?? $request->input('error'),
-        'time'    => $request->input('time') ?? now()->toISOString(),
-    ];
+    $message = $request->input('message') ?? 'Unknown error';
 
-    \Illuminate\Support\Facades\Cache::put('n8n_last_error', $data, now()->addMinutes(30));
-    Log::error('N8N Workflow Error', $data);
+    // جيب آخر job لسا pending أو شغالة
+    $job = \App\Models\GradingJob::whereIn('status', ['pending', 'processing'])
+        ->latest()
+        ->first();
 
-    return response()->json(['success' => true, 'error' => $data]);
+    if ($job) {
+        $job->update([
+            'status' => 'failed',
+            'result' => ['error' => $message]
+        ]);
+    }
+
+    \Log::error('N8N Workflow Error', $request->all());
+
+    return response()->json(['success' => true]);
 }
 
 //--------------------------------------
