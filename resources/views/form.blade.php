@@ -22,6 +22,7 @@
 
     <h1 class="form-title">Smart Grade Analyzer</h1>
     <p class="form-subtitle">Link your data and analyze grades automatically.</p>
+     <div class="content-wrapper">
 
     <div class="form-card">
 
@@ -153,6 +154,7 @@
       </div>
 
     </div>
+    </div>
 
   </section>
 
@@ -192,75 +194,89 @@
     //  Analyze Prompt 
 
     document.getElementById('analyzePromptBtn').addEventListener('click', async function () {
-      const sheetUrl = document.getElementById('sheet1').value.trim();
-      const prompt   = document.getElementById('prompt').value.trim();
-      const card     = document.getElementById('resultCard');
-      const btn      = this;
+  const sheetUrl = document.getElementById('sheet1').value.trim();
+  const prompt   = document.getElementById('prompt').value.trim();
+  const card     = document.getElementById('resultCard');
+  const btn      = this;
 
-      hideError();
+  hideError();
 
-      if (!sheetUrl) { showError('Please enter the input sheet URL.'); return; }
-      if (!prompt)   { showError('Please enter the grading prompt.'); return; }
-      
+  if (!sheetUrl) { showError('Please enter the input sheet URL.'); return; }
+  if (!prompt)   { showError('Please enter the grading prompt.'); return; }
 
-      document.getElementById('actionBtns').style.display = 'none';
-      card.classList.remove('show');
-      btn.disabled = true;
-      btn.innerHTML = '<span class="loader"></span> Analyzing...';
+  document.getElementById('actionBtns').style.display = 'none';
+  card.classList.remove('show');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loader"></span> Analyzing...';
 
-      try {
-        const response = await fetch("{{ route('prompt.analyze') }}", {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': '{{ csrf_token() }}'
-          },
-          body: JSON.stringify({ sheet_url: sheetUrl, prompt: prompt })
-        });
+  const controller = new AbortController();
+  const connectionCheck = setInterval(() => {
+    if (!navigator.onLine) {
+      clearInterval(connectionCheck);
+      controller.abort();
+    }
+  }, 1000);
 
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-         showError('⚠️ Unable to reach the server right now. Please check your connection and try again.');
-          btn.innerText = 'Analyze Prompt';
-          btn.disabled = false;
-          return;
-        }
-
-        const data = await response.json();
-
-        if (!data.success) {
-  showError(response.status === 504
-    ? '⏳ Request timed out. Please try again.'
-    : data.error || data.message || 'Something went wrong. Please try again.'
-  );
-          btn.innerText = 'Analyze Prompt';
-          btn.disabled = false;
-          return;
-        }
-
-        promptAnalysis = data.analysis;
-
-        document.getElementById('resultCardTitle').innerText = 'Prompt Analysis :';
-        document.getElementById('resultText').innerText = 'Prompt analyzed — review and confirm';
-        document.getElementById('resultDesc').innerHTML =
-          `<pre style="text-align:left; font-size:12px; white-space:pre-wrap; word-break:break-word;">${JSON.stringify(data.analysis, null, 2)}</pre>`;
-
-        document.querySelector('.stats').style.display = 'none';
-        document.getElementById('readyBox').style.display = 'none';
-        card.classList.add('show');
-
-        btn.style.display = 'none';
-        btn.innerText = 'Analyze Prompt';
-        btn.disabled = false;
-        document.getElementById('actionBtns').style.display = 'flex';
-
-      } catch (err) {
-        showError('⏳ Connection error. Please try again.');
-        btn.innerText = 'Analyze Prompt';
-        btn.disabled = false;
-      }
+  try {
+    const response = await fetch("{{ route('prompt.analyze') }}", {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+      },
+      body: JSON.stringify({ sheet_url: sheetUrl, prompt: prompt }),
+      signal: controller.signal
     });
 
+    clearInterval(connectionCheck);
+
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      showError('⚠️ Unable to reach the server right now. Please check your connection and try again.');
+      btn.innerText = 'Analyze Prompt';
+      btn.disabled = false;
+      return;
+    }
+
+    const data = await response.json();
+
+    if (!data.success) {
+      showError(response.status === 504
+        ? '⏳ Request timed out. Please try again.'
+        : data.error || data.message || 'Something went wrong. Please try again.'
+      );
+      btn.innerText = 'Analyze Prompt';
+      btn.disabled = false;
+      return;
+    }
+
+    promptAnalysis = data.analysis;
+
+    document.getElementById('resultCardTitle').innerText = 'Prompt Analysis :';
+    document.getElementById('resultText').innerText = 'Prompt analyzed — review and confirm';
+    document.getElementById('resultDesc').innerHTML =
+      `<pre style="text-align:left; font-size:12px; white-space:pre-wrap; word-break:break-word;">${JSON.stringify(data.analysis, null, 2)}</pre>`;
+
+    document.querySelector('.stats').style.display = 'none';
+    document.getElementById('readyBox').style.display = 'none';
+    card.classList.add('show');
+
+    btn.style.display = 'none';
+    btn.innerText = 'Analyze Prompt';
+    btn.disabled = false;
+    document.getElementById('actionBtns').style.display = 'flex';
+
+  } catch (err) {
+    clearInterval(connectionCheck);
+    if (err.name === 'AbortError') {
+      showError('⏳ Connection lost. Please check your internet and try again.');
+    } else {
+      showError('⚠️ No internet connection or server error. Please try again.');
+    }
+    btn.innerText = 'Analyze Prompt';
+    btn.disabled = false;
+  }
+});
     //  Re-analyze 
 
     document.getElementById('reAnalyzeBtn').addEventListener('click', function () {
@@ -268,7 +284,7 @@
       document.getElementById('readyBox').style.display = '';
       document.querySelector('.stats').style.display = '';
       document.getElementById('actionBtns').style.display = 'none';
-      document.getElementById('resultCardTitle').innerText = 'Result Summary :';
+      document.getElementById(  'resultCardTitle').innerText = 'Result Summary :';
       hideError();
 
       const analyzeBtn = document.getElementById('analyzePromptBtn');
@@ -396,6 +412,10 @@ try {
 }
 
     document.getElementById('proceedBtn').addEventListener('click', analyzeGrades);
+
+
+
+
 
   </script>
 

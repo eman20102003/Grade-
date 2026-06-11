@@ -58,8 +58,8 @@ public function send(Request $request)
 
         $this->validateSheetAccess(
             $sheet2CsvUrl,
-            'Your output sheet is not accessible. Please open the sheet → click Share → change to "Anyone with the link can Edit".'
-        );
+            'Your output sheet is not accessible. Please open the sheet → click Share → change to "Anyone with the link can view".'
+);
     } catch (\Exception $e) {
         return $this->error($e->getMessage());
     }
@@ -102,23 +102,34 @@ public function jobStatus(string $jobId)
     }
 
     if ($job->status === 'failed') {
+    $result = $job->result;
+    
+    if (is_string($result)) {
+        $result = json_decode($result, true);
+    }
+    $job->delete();
     return response()->json([
         'status' => 'failed',
-        'error'  => is_string($job->result['error'] ?? null) ? $job->result['error'] : 'Processing failed. Please try again.',
+        'error'  => $result['error'] ?? 'Processing failed. Please check your prompt,data and try again.',
     ]);
 }
 
-    if ($job->status === 'done') {
-        $data = $job->result;
-        return response()->json([
-            'status'      => 'done',
-            'sheet_url'   => $data['sheet_url']   ?? null,
-            'avg'         => $data['avg']          ?? null,
-            'max'         => $data['max']          ?? null,
-            'min'         => $data['min']          ?? null,
-            'explanation' => $data['explanation']  ?? null,
-        ]);
+   if ($job->status === 'done') {
+    $data = $job->result;
+    
+    if (is_string($data)) {
+        $data = json_decode($data, true);
     }
+    $job->delete();
+    return response()->json([
+        'status'      => 'done',
+        'sheet_url'   => $data['sheet_url']   ?? null,
+        'avg'         => $data['avg']          ?? null,
+        'max'         => $data['max']          ?? null,
+        'min'         => $data['min']          ?? null,
+        'explanation' => $data['explanation']  ?? null,
+    ]);
+}
 
     return response()->json(['status' => $job->status]); // pending أو failed
 }
@@ -147,12 +158,21 @@ public function jobStatus(string $jobId)
             ], 422);
         }
 
-        $csvUrl      = "https://docs.google.com/spreadsheets/d/{$sheetId}/export?format=csv&gid={$gid}";
-        $csvResponse = Http::timeout(60)->retry(3, 2000)->get($csvUrl);
+     $csvUrl = "https://docs.google.com/spreadsheets/d/{$sheetId}/export?format=csv&gid={$gid}";
+
+try {
+    $csvResponse = Http::timeout(60)->retry(3, 2000)->get($csvUrl);
+} catch (\Exception $e) {
+    return response()->json([
+        'success' => false,
+        'message' => 'Your input sheet is not accessible. Please open the sheet → click Share → change to "Anyone with the link can view".',
+    ], 200);
+}
+
 if ($csvResponse->failed()) {
     return response()->json([
         'success' => false,
-        'error' => 'Your input sheet is not accessible. Please open the sheet → click Share → change to "Anyone with the link can view".',
+        'message' => 'Your input sheet is not accessible. Please open the sheet → click Share → change to "Anyone with the link can view".',
     ], 200);
 }
 
@@ -161,7 +181,12 @@ if ($csvResponse->failed()) {
         if (empty($headers)) {
             return response()->json(['success' => false, 'message' => 'No headers found in the first row of the sheet.'], 422);
         }
-
+        if ($this->headersLookLikeData($headers)) {
+           return response()->json([
+                'success' => false,
+                'message' => 'Your sheet appears to be missing column headers. Please add a header row as the first row (e.g. Student Name, Quiz 1, Midterm...).',
+            ], 422);
+            }
         
                  \Log::info('About to call OpenAI', [
     'key_exists' => !empty(env('OPENAI_API_KEY')),
@@ -222,6 +247,47 @@ $openAiResponse = Http::withToken(env('OPENAI_API_KEY'))
         ]);
     }
 
+   public function handleN8nError(Request $request)
+{
+    $jobId = $request->input('job_id');
+    $errorMessage = $request->input('error_message', 'Processing failed. Please check your prompt,data and try again.');
+
+    if ($jobId) {
+        GradingJob::where('id', $jobId)->update([
+            'status' => 'failed',
+            'result' => ['error' => $errorMessage]
+        ]);
+    }
+
+    return response()->json(['success' => false, 'error' => $errorMessage]);
+}
+
+//-------------------------------
+
+public function storeError(Request $request)
+{
+    $message = $request->input('error_message') ?? 'Unknown error';
+    $message = preg_replace('/\s*\[line \d+\]/', '', $message);
+
+    $job = \App\Models\GradingJob::whereIn('status', ['pending', 'failed'])
+        ->where('created_at', '>=', now()->subMinutes(5))
+        ->latest()
+        ->first();
+
+    if ($job) {
+        $job->update([
+            'status' => 'failed',
+            'result' => ['error' => $message]
+        ]);
+    }
+
+    \Log::error('N8N Workflow Error', $request->all());
+
+    return response()->json(['success' => true]);
+}
+
+//--------------------------------------
+
     //  Helpers 
 
     private function error(string $message, int $status = 200)
@@ -271,6 +337,8 @@ $openAiResponse = Http::withToken(env('OPENAI_API_KEY'))
         }
    }
 
+
+
     private function extractHeadersFromCsv(string $content): array
     {
         $content = trim($content);
@@ -309,6 +377,17 @@ $openAiResponse = Http::withToken(env('OPENAI_API_KEY'))
 
         return array_values(array_filter(array_map('trim', $headers), fn($h) => $h !== ''));
     }
+
+    private function headersLookLikeData(array $headers): bool
+{
+    $numericCount = 0;
+    foreach ($headers as $h) {
+        if (is_numeric($h) || preg_match('/^\d{1,2}[\/\-]\d{1,2}/', $h) || trim($h) === '') {
+            $numericCount++;
+        }
+    }
+    return $numericCount > count($headers) / 2;
+}
 
     private function systemPrompt(): string
     {
